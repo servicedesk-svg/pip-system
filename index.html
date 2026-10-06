@@ -104,7 +104,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">指派參與主管群 (可多選)</label>
+            <label class="block text-xs font-bold text-slate-600 mb-1">指派參與主管群 (可多選，這些主管皆需確認簽核)</label>
             <div id="pipManagersCheckbox" class="flex flex-wrap gap-3 bg-slate-50 p-3 rounded-lg border text-sm"></div>
           </div>
 
@@ -129,12 +129,19 @@
       </div>
     </div>
 
-    <!-- 4. PIP 編輯與覆核作業區 (Manager & Admin Shared) -->
+    <!-- 4. PIP 編輯與分頁覆核作業區 (Manager Shared Area) -->
     <div id="viewPipEditor" class="hidden space-y-6">
       <button onclick="backToDashboard()" class="text-sm text-slate-600 hover:text-slate-900"><i class="fa-solid fa-arrow-left mr-1"></i>返回總覽</button>
       
+      <!-- 主管三大階段分頁頁籤 (Tabs) -->
+      <div class="flex border-b bg-white rounded-t-xl overflow-hidden shadow">
+        <button onclick="switchAdminStepTab(1)" id="stepTab1" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50/50"><i class="fa-solid fa-pen-to-square mr-2"></i>步驟一：指標與任務設定</button>
+        <button onclick="switchAdminStepTab(2)" id="stepTab2" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-bars-progress mr-2"></i>步驟二：4 期歷程追蹤與建議</button>
+        <button onclick="switchAdminStepTab(3)" id="stepTab3" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-signature mr-2"></i>步驟三：期末結案與多主管簽核</button>
+      </div>
+
       <!-- 導出 PDF 專用包覆區 -->
-      <div id="pdfExportArea" class="bg-white rounded-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
+      <div id="pdfExportArea" class="bg-white rounded-b-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
         
         <!-- Header -->
         <div class="border-b pb-4 text-center">
@@ -143,51 +150,65 @@
           <p class="text-xs text-slate-500 mt-1">【法務與管理提示】本計畫書旨在輔導同仁提升專業水準與職場表現。輔導過程與各階段評核紀錄均作為檢視輔導歷程與最後手段性原則之依據。</p>
         </div>
 
-        <!-- 基本資料區 -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg text-sm border">
-          <div><span class="text-slate-500 text-xs block">受輔導員工</span><span id="editorEmpName" class="font-bold"></span></div>
-          <div><span class="text-slate-500 text-xs block">執行區間</span><span id="editorDates" class="font-bold text-xs"></span></div>
-          <div><span class="text-slate-500 text-xs block">輔導主管群</span><span id="editorManagers" class="font-bold text-xs"></span></div>
-          <div><span class="text-slate-500 text-xs block">發布狀態</span><span id="editorStatus" class="font-bold text-xs"></span></div>
-        </div>
-
-        <!-- 改善指標區 -->
-        <div>
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="text-base font-bold text-slate-900">二、 核心改善指標與具體執行標準</h3>
-            <button id="btnAddIndicator" onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100 font-bold">+ 新增指標欄位</button>
+        <!-- 基本資料 -->
+        <div class="bg-slate-50 p-4 rounded-lg text-sm border space-y-3">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div><span class="text-slate-500 text-xs block">受輔導員工</span><span id="editorEmpName" class="font-bold"></span></div>
+            <div><span class="text-slate-500 text-xs block">執行區間</span><span id="editorDates" class="font-bold text-xs"></span></div>
+            <div><span class="text-slate-500 text-xs block">輔導主管群</span><span id="editorManagers" class="font-bold text-xs"></span></div>
+            <div><span class="text-slate-500 text-xs block">發布狀態</span><span id="editorStatus" class="font-bold text-xs"></span></div>
           </div>
-          <div id="indicatorsContainer" class="space-y-4"></div>
         </div>
 
-        <!-- 4 週評估時間軸 (Weekly Loop) -->
-        <div class="border-t pt-6">
-          <h3 class="text-base font-bold text-slate-900 mb-3">三、 4 週追蹤評估機制與紀錄</h3>
+        <!-- 分頁 1內容：指標與任務清單設定 -->
+        <div id="stepSection1" class="space-y-6">
+          <div class="bg-indigo-50 p-3 rounded border border-indigo-100">
+            <label class="block text-xs font-bold text-indigo-900 mb-1"><i class="fa-brands fa-google-drive mr-1"></i>指定給員工上傳佐證資料的 Google Drive 雲端資料夾網址</label>
+            <input type="url" id="pipDriveUploadUrl" onchange="updateDriveUploadUrl(this.value)" placeholder="https://drive.google.com/drive/folders/..." class="w-full p-2.5 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="text-base font-bold text-slate-900">一、 核心改善指標與具體執行標準</h3>
+              <button onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-100 font-bold">+ 新增改善指標</button>
+            </div>
+            <div id="indicatorsContainer" class="space-y-4"></div>
+          </div>
+
+          <div class="border-t pt-6">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="text-base font-bold text-slate-900">二、 具體工作任務清單 ( Check List )</h3>
+              <button onclick="addChecklistItem()" class="text-xs bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded hover:bg-emerald-100 font-bold">+ 新增任務項目</button>
+            </div>
+            <div id="checklistContainer" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- 分頁 2內容：4 期追蹤與建議 -->
+        <div id="stepSection2" class="hidden space-y-6">
+          <h3 class="text-base font-bold text-slate-900 mb-3">三、 4 期追蹤評估機制與主管評語</h3>
           
           <div class="flex space-x-2 border-b mb-4" id="weekTabs">
-            <button onclick="switchWeekTab(1)" id="tabW1" class="px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600">第一週</button>
-            <button onclick="switchWeekTab(2)" id="tabW2" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第二週</button>
-            <button onclick="switchWeekTab(3)" id="tabW3" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第三週</button>
-            <button onclick="switchWeekTab(4)" id="tabW4" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第四週</button>
+            <button onclick="switchWeekTab(1)" id="tabW1" class="px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600">第一期</button>
+            <button onclick="switchWeekTab(2)" id="tabW2" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第二期</button>
+            <button onclick="switchWeekTab(3)" id="tabW3" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第三期</button>
+            <button onclick="switchWeekTab(4)" id="tabW4" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第四期</button>
           </div>
 
-          <!-- 週評估內容 -->
           <div id="weekPanelContent" class="space-y-4 bg-slate-50 p-4 rounded-lg border">
-            <!-- 員工當週填寫成果 -->
             <div class="bg-white p-4 rounded border">
-              <h4 class="text-xs font-bold text-slate-500 mb-2">【員工回報成果】</h4>
+              <h4 class="text-xs font-bold text-slate-500 mb-2">【員工當期回報成果】</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div><span class="text-xs text-slate-400 block">當週勾選完成度 (%)</span><span id="wEmpProgress" class="font-bold text-indigo-600">0%</span></div>
-                <div><span class="text-xs text-slate-400 block">Google Drive 雲端佐證連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
-                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-2 rounded border mt-1">無</p></div>
+                <div><span class="text-xs text-slate-400 block">當期任務完成進度 (%)</span><span id="wEmpProgress" class="font-bold text-indigo-600">0%</span></div>
+                <div><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px]">無</p></div>
               </div>
             </div>
 
-            <!-- 主管審查 -->
             <div id="managerReviewForm" class="space-y-3">
-              <h4 class="text-xs font-bold text-slate-500">【主管審核與逐項建議】</h4>
+              <h4 class="text-xs font-bold text-slate-500">【主管審核與當期指導評語】</h4>
               <div>
-                <label class="block text-xs text-slate-600 mb-1">當週評核結果</label>
+                <label class="block text-xs text-slate-600 mb-1">當期評核結果</label>
                 <div class="flex space-x-4 text-sm">
                   <label class="flex items-center"><input type="radio" name="wResult" value="達標" class="mr-1"> 達標</label>
                   <label class="flex items-center"><input type="radio" name="wResult" value="部分改善" class="mr-1"> 部分改善</label>
@@ -195,16 +216,17 @@
                 </div>
               </div>
               <div>
-                <label class="block text-xs text-slate-600 mb-1">主管評語與改善建議</label>
-                <textarea id="wManagerComment" rows="2" class="w-full p-2 border rounded text-xs"></textarea>
+                <label class="block text-xs text-slate-600 mb-1">主管當期評語與改善建議 (大輸入框)</label>
+                <textarea id="wManagerComment" rows="4" placeholder="請在此輸入詳細指導建議..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 期末總評估 (Final Assessment) -->
-        <div class="border-t pt-6">
-          <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置</h3>
+        <!-- 分頁 3內容：期末結案與多主管確認 -->
+        <div id="stepSection3" class="hidden space-y-6">
+          <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與主管群會簽確認</h3>
+          
           <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
             <div class="space-y-2 text-sm">
               <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="通過 PIP" onchange="toggleExtendInput(false)" class="mr-2"> ☐ 通過 PIP</label>
@@ -216,26 +238,27 @@
               <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="未通過 PIP" onchange="toggleExtendInput(false)" class="mr-2"> ☐ 未通過 PIP</label>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">主管綜合評語</label>
-              <textarea id="finalManagerSummary" rows="3" class="w-full p-2 border rounded text-xs"></textarea>
+              <label class="block text-xs font-bold text-slate-600 mb-1">主管綜合總評語 (大輸入框)</label>
+              <textarea id="finalManagerSummary" rows="5" placeholder="請輸入期末綜合評語..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
             </div>
           </div>
-        </div>
 
-        <!-- 雙方與多主管電子簽名區 -->
-        <div class="border-t pt-6">
-          <h3 class="text-base font-bold text-slate-900 mb-3">五、 聲明與正式簽核確認</h3>
-          <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+          <!-- 多主管會簽與簽名狀態 -->
+          <div class="border-t pt-6">
+            <h3 class="text-base font-bold text-slate-900 mb-2">五、 參與主管會簽確認狀態 (需全員確認方可結案)</h3>
+            <p class="text-xs text-slate-500 mb-4">所有指派參與的主管登入後均可點擊進行「確認簽核」。系統會即時顯示完成狀態。</p>
+            <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+          </div>
         </div>
       </div>
 
       <!-- 底部操作按鈕區 (不列印進 PDF) -->
       <div class="flex flex-wrap gap-3 justify-end bg-white p-4 rounded-xl shadow border">
         <button id="btnSaveDraft" onclick="savePipData('草稿')" class="bg-slate-600 text-white px-4 py-2 rounded text-sm hover:bg-slate-700">儲存變更</button>
-        <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布 PIP</button>
-        <button id="btnReturnRevise" onclick="savePipData('退回修訂')" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700">退回修訂</button>
-        <button id="btnFinalize" onclick="savePipData('已結案')" class="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-emerald-700">完成結案</button>
-        <button id="btnDeletePip" onclick="deleteCurrentPip()" class="bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除此 PIP 專案</button>
+        <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布 PIP (自動寄信)</button>
+        <button id="btnReturnRevise" onclick="savePipData('退回修訂')" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (自動寄信通知)</button>
+        <button id="btnFinalize" onclick="finalizePipProject()" class="bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (全員簽核解鎖)</button>
+        <button id="btnDeletePip" onclick="deleteCurrentPip()" class="bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
         <button onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF</button>
       </div>
     </div>
@@ -528,8 +551,12 @@
         startDate,
         endDate,
         status: "草稿",
+        driveUploadUrl: "",
         indicators: [
           { title: "改善指標一", objective: "", expectation: "", kpi: "", support: "" }
+        ],
+        checklist: [
+          { id: 1, text: "完成第一個指定任務項目", done: false }
         ],
         weeklyReviews: { 1: {}, 2: {}, 3: {}, 4: {} },
         signatures: {},
@@ -557,6 +584,7 @@
       document.getElementById("editorDates").innerText = p.startDate + " ~ " + p.endDate;
       document.getElementById("editorManagers").innerText = p.assignedManagers.join(", ");
       document.getElementById("editorStatus").innerText = p.status;
+      document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
 
       if (window.currentUser.email === p.publisherEmail || window.currentUser.role === "super_admin") {
         document.getElementById("btnPublish").classList.remove("hidden");
@@ -566,25 +594,59 @@
         document.getElementById("btnDeletePip").classList.add("hidden");
       }
 
+      switchAdminStepTab(1);
       renderIndicators();
+      renderChecklist();
       switchWeekTab(1);
       renderSignatures();
+      checkFinalizeLockStatus();
+    }
+
+    // 分頁切換 (Step Tabs)
+    function switchAdminStepTab(step) {
+      for (let i = 1; i <= 3; i++) {
+        const tabBtn = document.getElementById(`stepTab${i}`);
+        const sec = document.getElementById(`stepSection${i}`);
+        if (i === step) {
+          tabBtn.className = "flex-1 py-3 px-4 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50/50";
+          sec.classList.remove("hidden");
+        } else {
+          tabBtn.className = "flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800";
+          sec.classList.add("hidden");
+        }
+      }
+    }
+
+    function updateDriveUploadUrl(val) {
+      if (window.currentPip) window.currentPip.driveUploadUrl = val;
     }
 
     function renderIndicators() {
       const container = document.getElementById("indicatorsContainer");
       let html = "";
       (window.currentPip.indicators || []).forEach((ind, idx) => {
-        html += `<div class="bg-slate-50 p-4 rounded-lg border text-sm space-y-2 relative">
+        html += `<div class="bg-slate-50 p-4 rounded-lg border text-sm space-y-3 relative">
           <div class="flex justify-between items-center">
-            <input type="text" value="${ind.title}" onchange="updateInd(${idx}, 'title', this.value)" placeholder="指標標題 (例如：指標一：工作品質與自主覆核)" class="w-full font-bold bg-white p-1 border rounded text-slate-800">
+            <input type="text" value="${ind.title}" onchange="updateInd(${idx}, 'title', this.value)" placeholder="指標標題 (例如：指標一：工作品質與自主覆核)" class="w-full font-bold bg-white p-2 border rounded text-slate-800">
             <button onclick="deleteIndicator(${idx})" class="ml-2 text-xs text-rose-600 hover:underline flex-shrink-0"><i class="fa-solid fa-trash mr-1"></i>刪除此指標</button>
           </div>
-          <textarea onchange="updateInd(${idx}, 'objective', this.value)" placeholder="改善目標 (Objective)" class="w-full p-1 border rounded text-xs" rows="1">${ind.objective}</textarea>
-          <textarea onchange="updateInd(${idx}, 'expectation', this.value)" placeholder="具體行為要求 (Actionable Expectations)" class="w-full p-1 border rounded text-xs" rows="2">${ind.expectation}</textarea>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <input type="text" value="${ind.kpi}" onchange="updateInd(${idx}, 'kpi', this.value)" placeholder="衡量與達標標準 (Key Performance Metrics)" class="p-1 border rounded text-xs">
-            <input type="text" value="${ind.support}" onchange="updateInd(${idx}, 'support', this.value)" placeholder="公司/主管輔導與支援資源" class="p-1 border rounded text-xs">
+          <div>
+            <label class="block text-[10px] font-bold text-slate-400 mb-0.5">改善目標 (Objective)</label>
+            <textarea onchange="updateInd(${idx}, 'objective', this.value)" rows="2" class="w-full p-2 border rounded text-xs bg-white">${ind.objective}</textarea>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-400 mb-0.5">具體行為要求 (Actionable Expectations)</label>
+            <textarea onchange="updateInd(${idx}, 'expectation', this.value)" rows="3" class="w-full p-2 border rounded text-xs bg-white">${ind.expectation}</textarea>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 mb-0.5">衡量與達標標準 (Metrics)</label>
+              <textarea onchange="updateInd(${idx}, 'kpi', this.value)" rows="2" class="w-full p-2 border rounded text-xs bg-white">${ind.kpi}</textarea>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 mb-0.5">輔導與支援資源 (Support)</label>
+              <textarea onchange="updateInd(${idx}, 'support', this.value)" rows="2" class="w-full p-2 border rounded text-xs bg-white">${ind.support}</textarea>
+            </div>
           </div>
         </div>`;
       });
@@ -609,6 +671,34 @@
       }
     }
 
+    function renderChecklist() {
+      const container = document.getElementById("checklistContainer");
+      let html = "";
+      (window.currentPip.checklist || []).forEach((item, idx) => {
+        html += `<div class="flex items-center space-x-2 bg-slate-50 p-2 rounded border">
+          <span class="text-xs font-bold text-slate-400 w-6">${idx + 1}.</span>
+          <textarea onchange="updateChecklistItem(${idx}, this.value)" rows="2" placeholder="輸入任務內容或交付標準..." class="flex-1 p-2 border rounded text-xs bg-white">${item.text}</textarea>
+          <button onclick="deleteChecklistItem(${idx})" class="text-xs text-rose-600 hover:underline px-2"><i class="fa-solid fa-trash"></i></button>
+        </div>`;
+      });
+      container.innerHTML = html || "<p class='text-xs text-slate-400'>目前無任務項目，請點擊上方按鈕新增。</p>";
+    }
+
+    function updateChecklistItem(idx, val) {
+      window.currentPip.checklist[idx].text = val;
+    }
+
+    function addChecklistItem() {
+      if (!window.currentPip.checklist) window.currentPip.checklist = [];
+      window.currentPip.checklist.push({ id: Date.now(), text: "", done: false });
+      renderChecklist();
+    }
+
+    function deleteChecklistItem(idx) {
+      window.currentPip.checklist.splice(idx, 1);
+      renderChecklist();
+    }
+
     function switchWeekTab(w) {
       window.activeWeek = w;
       for (let i = 1; i <= 4; i++) {
@@ -623,7 +713,7 @@
       const wData = (window.currentPip.weeklyReviews || {})[w] || {};
       document.getElementById("wEmpProgress").innerText = (wData.progress || 0) + "%";
       document.getElementById("wEmpDriveLink").href = wData.driveLink || "#";
-      document.getElementById("wEmpDriveLink").innerText = wData.driveLink ? "開啟 Google Drive 佐證 ↗" : "尚未提供";
+      document.getElementById("wEmpDriveLink").innerText = wData.driveLink ? "開啟員工提供之檔案 ↗" : "尚未提供";
       document.getElementById("wEmpNotes").innerText = wData.notes || "無";
 
       document.getElementById("wManagerComment").value = wData.managerComment || "";
@@ -633,6 +723,7 @@
       }
     }
 
+    // 主管簽核與狀態渲染
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       let html = "";
@@ -640,20 +731,43 @@
       const empSign = (window.currentPip.signatures || {})['emp'];
       html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
         <span class="text-xs text-slate-500 block mb-2">受輔導員工</span>
-        ${empSign ? `<img src="${empSign}" class="h-12 mx-auto mb-1">` : `<button onclick="openSignModal('emp')" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded">點此簽名</button>`}
+        ${empSign ? `<img src="${empSign}" class="h-12 mx-auto mb-1">` : `<span class="text-xs text-amber-600 block my-2">待員工簽名</span>`}
         <span class="text-[10px] text-slate-400 block mt-1">${window.currentPip.empName}</span>
       </div>`;
 
       (window.currentPip.assignedManagers || []).forEach(mgrEmail => {
         const mgrSign = (window.currentPip.signatures || {})[mgrEmail];
+        const isCurrentMgr = window.currentUser.email === mgrEmail;
+        
         html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
-          <span class="text-xs text-slate-500 block mb-2">輔導主管</span>
-          ${mgrSign ? `<img src="${mgrSign}" class="h-12 mx-auto mb-1">` : `<button onclick="openSignModal('${mgrEmail}')" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded">點此簽名</button>`}
-          <span class="text-[10px] text-slate-400 block mt-1">${mgrEmail}</span>
+          <span class="text-xs text-slate-500 block mb-2">輔導主管 (${mgrEmail})</span>
+          ${mgrSign 
+            ? `<img src="${mgrSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已確認簽核</span>` 
+            : (isCurrentMgr 
+                ? `<button onclick="openSignModal('${mgrEmail}')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow">點此確認簽核</button>` 
+                : `<span class="text-xs text-slate-400 block my-2">待主管確認</span>`)}
         </div>`;
       });
 
       grid.innerHTML = html;
+      checkFinalizeLockStatus();
+    }
+
+    // 檢查全體主管是否均已簽核，以連動解鎖「完成結案」按鈕
+    function checkFinalizeLockStatus() {
+      const assigned = window.currentPip.assignedManagers || [];
+      const sigs = window.currentPip.signatures || {};
+      const allSigned = assigned.length > 0 && assigned.every(m => sigs[m]);
+
+      const btn = document.getElementById("btnFinalize");
+      if (btn) {
+        btn.disabled = !allSigned;
+        if (allSigned) {
+          btn.classList.remove("opacity-50", "cursor-not-allowed");
+        } else {
+          btn.classList.add("opacity-50", "cursor-not-allowed");
+        }
+      }
     }
 
     function openSignModal(role) {
@@ -675,6 +789,7 @@
       if (!window.currentPip.signatures) window.currentPip.signatures = {};
       window.currentPip.signatures[window.targetSignRole] = dataUrl;
       closeSignModal();
+      savePipData();
       renderSignatures();
     }
 
@@ -701,13 +816,21 @@
       const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
 
-      triggerEmailNotification(status);
-      alert("資料已成功儲存與同步！");
+      if (status) {
+        triggerEmailNotification(status);
+        alert(`狀態已更新為 [${status}] 並自動完成發信通知！`);
+      }
     }
 
     async function publishPip() {
-      if (confirm("確定要正式發布此 PIP 給員工嗎？系統將自動發送通知信。")) {
+      if (confirm("確定要正式發布此 PIP 給員工嗎？系統將自動發送 Email 通知。")) {
         await savePipData("進行中");
+      }
+    }
+
+    async function finalizePipProject() {
+      if (confirm("所有主管均已確認簽核，確定要完成此 PIP 結案嗎？系統將發送結案通知。")) {
+        await savePipData("已結案");
       }
     }
 
@@ -716,8 +839,11 @@
       if (!gasUrl) return;
 
       const p = window.currentPip;
-      let subject = `【友士國際會計師事務所 PIP 通知】狀態更新：${p.status}`;
-      let body = `<p>親愛的同仁/主管您好：</p><p>員工 <b>${p.empName}</b> 的 PIP 計畫狀態已更新為：<b>${p.status}</b>。</p><p>請登入系統檢視詳細內容。</p>`;
+      let subject = `【友士國際會計師事務所 PIP 通知】專案狀態更新：${status}`;
+      let body = `<p>親愛的同仁/主管您好：</p>
+        <p>員工 <b>${p.empName}</b> 的 PIP 改善計畫專案狀態已更新為：<b style="color:#4f46e5;">${status}</b>。</p>
+        <p>請點擊下方系統連結登入查看最新詳細內容：</p>
+        <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
 
       try {
         await fetch(gasUrl, {
@@ -763,7 +889,7 @@
             <h4 class="font-bold text-slate-900">${p.empName}</h4>
             <p class="text-xs text-slate-500">期間：${p.startDate} ~ ${p.endDate}</p>
             <p class="text-xs text-slate-500">狀態：<span class="font-semibold text-indigo-600">${p.status}</span></p>
-            <button onclick="openPipEditor('${p.id}')" class="w-full mt-2 bg-indigo-600 text-white text-xs py-1.5 rounded">開啟覆核面板</button>
+            <button onclick="openPipEditor('${p.id}')" class="w-full mt-2 bg-indigo-600 text-white text-xs py-1.5 rounded hover:bg-indigo-700">開啟覆核面板</button>
           </div>`;
         }
       });
@@ -785,56 +911,101 @@
       }
 
       window.currentPip = empPip;
+      renderEmployeeCard();
+    }
+
+    function renderEmployeeCard() {
+      const empPip = window.currentPip;
+      let driveBtn = empPip.driveUploadUrl 
+        ? `<a href="${empPip.driveUploadUrl}" target="_blank" class="inline-block bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded shadow hover:bg-indigo-700 transition"><i class="fa-brands fa-google-drive mr-1"></i>點此開啟 Google Drive 雲端資料夾上傳佐證檔案 ↗</a>`
+        : `<span class="text-xs text-slate-400">主管尚未指定雲端上傳資料夾</span>`;
+
+      let checklistHtml = "";
+      (empPip.checklist || []).forEach((item, idx) => {
+        checklistHtml += `<label class="flex items-start space-x-3 p-2.5 bg-white rounded border hover:bg-slate-50 cursor-pointer">
+          <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleEmpChecklist(${idx}, this.checked)" class="mt-1 h-4 w-4 text-indigo-600 rounded">
+          <span class="text-xs text-slate-800 ${item.done ? 'line-through text-slate-400' : ''}">${item.text}</span>
+        </label>`;
+      });
+
       let html = `
-        <h2 class="text-xl font-bold mb-2">個人 PIP 績效改善計畫</h2>
+        <h2 class="text-xl font-bold mb-1">個人 PIP 績效改善計畫</h2>
         <p class="text-xs text-slate-500 mb-4">執行期間：${empPip.startDate} ~ ${empPip.endDate} | 目前狀態：<span class="font-bold text-indigo-600">${empPip.status}</span></p>
 
+        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg mb-6">
+          <h4 class="text-xs font-bold text-indigo-900 mb-1">📁 佐證資料上傳專區</h4>
+          <p class="text-xs text-slate-600 mb-3">請將當期產出的工作文件上傳至主管提供的 Google Drive 資料夾中，上傳完成後可複製檔案連結填入下方欄位。</p>
+          ${driveBtn}
+        </div>
+
+        <div class="bg-slate-50 border p-4 rounded-lg mb-6 space-y-2">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-sm font-bold text-slate-800">☑ 具體工作任務清單 (請勾選已完成項目)</h3>
+            <span id="empProgressPercent" class="text-xs font-bold text-indigo-600"></span>
+          </div>
+          <div class="space-y-2">${checklistHtml || '<p class="text-xs text-slate-400">目前尚無指定任務項目</p>'}</div>
+        </div>
+
         <div class="border p-4 rounded-lg bg-slate-50 space-y-4">
-          <h3 class="text-sm font-bold">每週進度回報 (Week 1 ~ 4)</h3>
+          <h3 class="text-sm font-bold">每期進度回報 (第 1 ~ 4 期)</h3>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <select id="empWeekSelect" onchange="loadEmpWeekData(this.value)" class="p-2 border rounded font-semibold">
-              <option value="1">第一週 (Week 1)</option>
-              <option value="2">第二週 (Week 2)</option>
-              <option value="3">第三週 (Week 3)</option>
-              <option value="4">第四週 (Week 4)</option>
+            <select id="empWeekSelect" onchange="loadEmpWeekData(this.value)" class="p-2 border rounded font-semibold bg-white">
+              <option value="1">第一期 (Phase 1)</option>
+              <option value="2">第二期 (Phase 2)</option>
+              <option value="3">第三期 (Phase 3)</option>
+              <option value="4">第四期 (Phase 4)</option>
             </select>
           </div>
 
           <div class="space-y-3">
             <div>
-              <label class="block text-xs text-slate-600 mb-1">當週自評進度 (%)</label>
-              <input type="number" id="empProgressInput" min="0" max="100" class="w-full p-2 border rounded text-xs" placeholder="0 ~ 100">
-            </div>
-            <div>
               <label class="block text-xs text-slate-600 mb-1">Google Drive 佐證資料分享連結</label>
-              <input type="url" id="empDriveInput" class="w-full p-2 border rounded text-xs" placeholder="https://drive.google.com/...">
+              <input type="url" id="empDriveInput" class="w-full p-2 border rounded text-xs bg-white" placeholder="https://drive.google.com/...">
             </div>
             <div>
-              <label class="block text-xs text-slate-600 mb-1">個人工作心得 / SOP 繳交備註</label>
-              <textarea id="empNotesInput" rows="3" class="w-full p-2 border rounded text-xs"></textarea>
+              <label class="block text-xs text-slate-600 mb-1">個人工作心得 / SOP 繳交備註 (大輸入框)</label>
+              <textarea id="empNotesInput" rows="4" placeholder="請填寫當期心得說明..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
             </div>
-            <button onclick="submitEmpWeekData()" class="w-full bg-indigo-600 text-white py-2 rounded text-xs font-semibold">確認送出當週進度</button>
+            <button onclick="submitEmpWeekData()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded text-xs font-semibold shadow">確認送出當期進度 (自動寄信通知主管群)</button>
           </div>
         </div>
       `;
       document.getElementById("empPipCard").innerHTML = html;
+      updateEmpProgressPercent();
       loadEmpWeekData(1);
+    }
+
+    function toggleEmpChecklist(idx, checked) {
+      window.currentPip.checklist[idx].done = checked;
+      updateEmpProgressPercent();
+    }
+
+    function updateEmpProgressPercent() {
+      const list = window.currentPip.checklist || [];
+      if (list.length === 0) return;
+      const doneCount = list.filter(i => i.done).length;
+      const pct = Math.round((doneCount / list.length) * 100);
+      const el = document.getElementById("empProgressPercent");
+      if (el) el.innerText = `完成度：${doneCount}/${list.length} (${pct}%)`;
     }
 
     function loadEmpWeekData(w) {
       window.activeWeek = w;
       const wData = (window.currentPip.weeklyReviews || {})[w] || {};
-      document.getElementById("empProgressInput").value = wData.progress || 0;
       document.getElementById("empDriveInput").value = wData.driveLink || "";
       document.getElementById("empNotesInput").value = wData.notes || "";
     }
 
     async function submitEmpWeekData() {
       const w = window.activeWeek;
+      const list = window.currentPip.checklist || [];
+      const doneCount = list.filter(i => i.done).length;
+      const pct = list.length > 0 ? Math.round((doneCount / list.length) * 100) : 0;
+
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
       window.currentPip.weeklyReviews[w] = {
         ...window.currentPip.weeklyReviews[w],
-        progress: document.getElementById("empProgressInput").value,
+        progress: pct,
         driveLink: document.getElementById("empDriveInput").value,
         notes: document.getElementById("empNotesInput").value
       };
@@ -843,7 +1014,7 @@
       await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
 
       triggerEmailNotification("員工已更新進度");
-      alert(`第 ${w} 週進度已成功送出！`);
+      alert(`第 ${w} 期進度已成功送出，並發送 Email 通知主管群！`);
     }
   </script>
 </body>
