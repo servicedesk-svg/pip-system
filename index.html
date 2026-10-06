@@ -87,7 +87,7 @@
               <select id="pipTargetEmployee" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者 (發布與結案主責主管)</label>
+              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者 (唯一具備發布與結案權限)</label>
               <select id="pipPublisher" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
@@ -621,7 +621,6 @@
       document.getElementById("btnFinalize").classList.toggle("hidden", !isPubOrAdmin);
       document.getElementById("btnDeletePip").classList.toggle("hidden", !isPubOrAdmin);
 
-      // 解鎖/解禁 PDF 下載按鈕 (只有已結案才解鎖)
       const pdfBtn = document.getElementById("btnPdfDownload");
       if (pdfBtn) {
         pdfBtn.disabled = p.status !== "已結案";
@@ -653,7 +652,6 @@
       if (window.currentPip) window.currentPip.driveUploadUrl = val;
     }
 
-    // 指標清單渲染 (包含【👁️ 檢視內容】與【✏️ 展開編輯】)
     function renderIndicators() {
       const container = document.getElementById("indicatorsContainer");
       let html = "";
@@ -826,12 +824,10 @@
       }
     }
 
-    // 簽名區塊：受輔導員工 + ★ 正式發布主管 + 指派輔導主管群
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       let html = "";
       
-      // 1. 受輔導員工簽名欄
       const empSign = (window.currentPip.signatures || {})['emp'];
       const isCurrentEmp = window.currentUser.email === window.currentPip.empEmail;
       html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
@@ -844,7 +840,6 @@
               : `<span class="text-xs text-amber-600 block my-2">待員工簽名</span>`)}
       </div>`;
 
-      // 2. 正式發布主管 + 指派主管群
       const pubEmail = window.currentPip.publisherEmail;
       const assignedMgrs = window.currentPip.assignedManagers || [];
       const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
@@ -1039,18 +1034,26 @@
       document.getElementById("managerPipList").innerHTML = html || "<p class='text-xs text-slate-400'>目前無指派給您的 PIP 專案</p>";
     }
 
-    // 員工端介面 (含正式接收日期與確認承接按鈕)
+    // 員工端介面 (嚴格檢查草稿狀態不顯示；正式發布後方可預覽與確認接收)
     async function loadEmployeeData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
       let empPip = null;
       pipsSnap.forEach(d => {
         const p = d.data();
-        if (p.empEmail === window.currentUser.email) empPip = p;
+        // 只有狀態「不是草稿」的專案才會展示給員工！
+        if (p.empEmail === window.currentUser.email && p.status !== "草稿") {
+          empPip = p;
+        }
       });
 
       if (!empPip) {
-        document.getElementById("empPipCard").innerHTML = "<p class='text-center text-slate-500 py-8'>目前尚無進行中的 PIP 計畫</p>";
+        document.getElementById("empPipCard").innerHTML = `
+          <div class="text-center py-12 space-y-3">
+            <i class="fa-solid fa-folder-open text-slate-300 text-4xl"></i>
+            <p class="text-slate-500 text-sm font-medium">目前尚無正式發布之 PIP 改善計畫</p>
+            <p class="text-slate-400 text-xs">若主管尚在研擬草稿階段，系統將暫不開放檢視。</p>
+          </div>`;
         return;
       }
 
@@ -1085,7 +1088,6 @@
 
       const empSign = (empPip.signatures || {})['emp'];
 
-      // 接收日期確認按鈕區塊
       let ackBlock = empPip.empAckDate 
         ? `<span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200"><i class="fa-solid fa-circle-check mr-1"></i>已於 ${empPip.empAckDate} 確認接收本 PIP 計畫</span>`
         : `<button onclick="confirmEmpAck()" class="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded shadow hover:bg-indigo-700 transition"><i class="fa-solid fa-file-signature mr-1"></i>點此確認接收並承接此 PIP 工作內容</button>`;
