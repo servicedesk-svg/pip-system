@@ -54,7 +54,7 @@
 
     <!-- 2. 最高管理者區塊 (Super Admin) -->
     <div id="viewSuperAdmin" class="hidden space-y-6">
-      <!-- GAS API 設定 (已帶入您的專屬 API) -->
+      <!-- GAS API 設定 -->
       <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
         <h3 class="text-lg font-bold text-slate-900 mb-2"><i class="fa-solid fa-gears text-indigo-600 mr-2"></i>系統郵件 API 設定</h3>
         <div class="flex gap-3">
@@ -90,7 +90,7 @@
               <select id="pipTargetEmployee" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者</label>
+              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者 (需參與簽名)</label>
               <select id="pipPublisher" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
@@ -104,7 +104,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1">指派參與主管群 (可多選)</label>
+            <label class="block text-xs font-bold text-slate-600 mb-1">指派參與主管群 (可多選，均需參與簽名)</label>
             <div id="pipManagersCheckbox" class="flex flex-wrap gap-3 bg-slate-50 p-3 rounded-lg border text-sm"></div>
           </div>
 
@@ -151,8 +151,8 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div><span class="text-slate-500 text-xs block">受輔導員工</span><span id="editorEmpName" class="font-bold"></span></div>
             <div><span class="text-slate-500 text-xs block">執行區間</span><span id="editorDates" class="font-bold text-xs"></span></div>
-            <div><span class="text-slate-500 text-xs block">輔導主管群</span><span id="editorManagers" class="font-bold text-xs"></span></div>
-            <div><span class="text-slate-500 text-xs block">發布狀態</span><span id="editorStatus" class="font-bold text-xs"></span></div>
+            <div><span class="text-slate-500 text-xs block">正式發布主管</span><span id="editorPublisher" class="font-bold text-indigo-600 text-xs"></span></div>
+            <div><span class="text-slate-500 text-xs block">參與輔導主管群</span><span id="editorManagers" class="font-bold text-xs"></span></div>
           </div>
         </div>
 
@@ -237,17 +237,17 @@
           </div>
 
           <div class="border-t pt-6">
-            <h3 class="text-base font-bold text-slate-900 mb-2">五、 參與主管會簽確認狀態 (需全員確認方可結案)</h3>
-            <p class="text-xs text-slate-500 mb-4">所有指派參與的主管登入後均可點擊進行「確認簽核」。系統會即時顯示完成狀態。</p>
+            <h3 class="text-base font-bold text-slate-900 mb-2">五、 主管與員工會簽確認狀態 (包含正式發布主管)</h3>
+            <p class="text-xs text-slate-500 mb-4">發布主管與指派參與的主管登入後均需點擊「確認簽核」。全體確認後方可執行結案。</p>
             <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
           </div>
         </div>
       </div>
 
       <div class="flex flex-wrap gap-3 justify-end bg-white p-4 rounded-xl shadow border">
-        <button id="btnSaveDraft" onclick="savePipData('草稿')" class="bg-slate-600 text-white px-4 py-2 rounded text-sm hover:bg-slate-700">儲存變更</button>
-        <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布 PIP (自動寄信)</button>
-        <button id="btnReturnRevise" onclick="savePipData('退回修訂')" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (自動寄信通知)</button>
+        <button id="btnSaveDraft" onclick="saveDraftOnly()" class="bg-slate-600 text-white px-4 py-2 rounded text-sm hover:bg-slate-700"><i class="fa-solid fa-floppy-disk mr-1"></i>純儲存變更 (不發信)</button>
+        <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布 PIP (寄信通知)</button>
+        <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (寄信通知員工)</button>
         <button id="btnFinalize" onclick="finalizePipProject()" class="bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (全員簽核解鎖)</button>
         <button id="btnDeletePip" onclick="deleteCurrentPip()" class="bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
         <button onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF</button>
@@ -305,7 +305,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 預設自動載入您的 GAS 自動發信 API 網址
     const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyxtHxcWN1g9Rezhz-gjocsYKJmWHd-wx1G3eULrWfog61KH8hP4XsglETOUnkA_l1k/exec";
     if (!localStorage.getItem("gasApiUrl")) {
       localStorage.setItem("gasApiUrl", DEFAULT_GAS_URL);
@@ -592,6 +591,7 @@
 
       document.getElementById("editorEmpName").innerText = p.empName;
       document.getElementById("editorDates").innerText = p.startDate + " ~ " + p.endDate;
+      document.getElementById("editorPublisher").innerText = p.publisherEmail;
       document.getElementById("editorManagers").innerText = p.assignedManagers.join(", ");
       document.getElementById("editorStatus").innerText = p.status;
       document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
@@ -732,10 +732,12 @@
       }
     }
 
+    // 補齊「正式發布主管」與「指派主管群」專屬簽名區塊
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       let html = "";
       
+      // 1. 員工簽名欄
       const empSign = (window.currentPip.signatures || {})['emp'];
       html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
         <span class="text-xs text-slate-500 block mb-2">受輔導員工</span>
@@ -743,12 +745,19 @@
         <span class="text-[10px] text-slate-400 block mt-1">${window.currentPip.empName}</span>
       </div>`;
 
-      (window.currentPip.assignedManagers || []).forEach(mgrEmail => {
+      // 2. 彙整所有需簽名主管 (包含正式發布主管 + 指派參與主管群，不重複)
+      const pubEmail = window.currentPip.publisherEmail;
+      const assignedMgrs = window.currentPip.assignedManagers || [];
+      const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
+
+      allMgrs.forEach(mgrEmail => {
         const mgrSign = (window.currentPip.signatures || {})[mgrEmail];
         const isCurrentMgr = window.currentUser.email === mgrEmail;
+        const isPublisher = mgrEmail === pubEmail;
         
         html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
-          <span class="text-xs text-slate-500 block mb-2">輔導主管 (${mgrEmail})</span>
+          <span class="text-xs text-slate-500 block mb-1">${isPublisher ? '★ 正式發布主管' : '輔導主管'}</span>
+          <span class="text-[10px] text-indigo-600 font-bold block mb-2">${mgrEmail}</span>
           ${mgrSign 
             ? `<img src="${mgrSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已確認簽核</span>` 
             : (isCurrentMgr 
@@ -762,9 +771,12 @@
     }
 
     function checkFinalizeLockStatus() {
-      const assigned = window.currentPip.assignedManagers || [];
+      const pubEmail = window.currentPip.publisherEmail;
+      const assignedMgrs = window.currentPip.assignedManagers || [];
+      const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
       const sigs = window.currentPip.signatures || {};
-      const allSigned = assigned.length > 0 && assigned.every(m => sigs[m]);
+      
+      const allSigned = allMgrs.length > 0 && allMgrs.every(m => sigs[m]);
 
       const btn = document.getElementById("btnFinalize");
       if (btn) {
@@ -796,7 +808,7 @@
       if (!window.currentPip.signatures) window.currentPip.signatures = {};
       window.currentPip.signatures[window.targetSignRole] = dataUrl;
       closeSignModal();
-      savePipData();
+      savePipDataToDb();
       renderSignatures();
     }
 
@@ -804,9 +816,14 @@
       document.getElementById("extendDateBox").classList.toggle("hidden", !show);
     }
 
-    async function savePipData(status) {
-      if (status) window.currentPip.status = status;
+    // 純儲存資料庫，不觸發 Email
+    async function saveDraftOnly() {
+      await savePipDataToDb();
+      alert("變更已成功儲存至雲端資料庫！");
+    }
 
+    // 真正的存檔底層
+    async function savePipDataToDb() {
       const wRes = document.querySelector('input[name="wResult"]:checked');
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
       window.currentPip.weeklyReviews[window.activeWeek] = {
@@ -822,30 +839,45 @@
 
       const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
-
-      if (status) {
-        triggerEmailNotification(status);
-        alert(`狀態已更新為 [${status}] 並自動完成發信通知！`);
-      }
     }
 
     async function publishPip() {
-      if (confirm("確定要正式發布此 PIP 給員工嗎？系統將自動發送 Email 通知。")) {
-        await savePipData("進行中");
+      if (confirm("確定要正式發布此 PIP 給員工嗎？系統將發送 Email 通知員工。")) {
+        window.currentPip.status = "進行中";
+        await savePipDataToDb();
+        triggerEmailNotification("進行中 (已發布)");
+        alert("PIP 已成功發布並完成寄信通知！");
+      }
+    }
+
+    async function returnForRevision() {
+      if (confirm("確定要退回此 PIP 要求同仁修訂嗎？系統將發送 Email 通知員工。")) {
+        window.currentPip.status = "退回修訂中";
+        await savePipDataToDb();
+        triggerEmailNotification("退回修訂中");
+        alert("已通知員工退回修訂！");
       }
     }
 
     async function finalizePipProject() {
       if (confirm("所有主管均已確認簽核，確定要完成此 PIP 結案嗎？系統將發送結案通知。")) {
-        await savePipData("已結案");
+        window.currentPip.status = "已結案";
+        await savePipDataToDb();
+        triggerEmailNotification("已結案");
+        alert("專案已正式完成結案並發送通知！");
       }
     }
 
+    // 發送通知信函數 (採用預檢模式避免 CORS)
     async function triggerEmailNotification(status) {
       const gasUrl = localStorage.getItem("gasApiUrl");
       if (!gasUrl) return;
 
       const p = window.currentPip;
+      const pubEmail = p.publisherEmail || "";
+      const assignedMgrs = p.assignedManagers || [];
+      const allMgrsCc = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean).join(",");
+
       let subject = `【友士國際會計師事務所 PIP 通知】專案狀態更新：${status}`;
       let body = `<p>親愛的同仁/主管您好：</p>
         <p>員工 <b>${p.empName}</b> 的 PIP 改善計畫專案狀態已更新為：<b style="color:#4f46e5;">${status}</b>。</p>
@@ -859,7 +891,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: p.empEmail,
-            cc: p.assignedManagers.join(","),
+            cc: allMgrsCc,
             subject: subject,
             htmlBody: body
           })
