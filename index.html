@@ -135,7 +135,6 @@
         <button onclick="switchAdminStepTab(3)" id="stepTab3" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-signature mr-2"></i>步驟三：期末結案與多主管簽核</button>
       </div>
 
-      <!-- 主管操作視覺介面 -->
       <div class="bg-white rounded-b-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
         
         <div class="border-b pb-4 text-center">
@@ -196,8 +195,7 @@
             <div class="bg-white p-4 rounded border">
               <h4 class="text-xs font-bold text-slate-500 mb-2">【員工當期回報成果】</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div><span class="text-xs text-slate-400 block">當期任務完成進度 (%)</span><span id="wEmpProgress" class="font-bold text-indigo-600">0%</span></div>
-                <div><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
                 <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px]">無</p></div>
               </div>
             </div>
@@ -335,6 +333,7 @@
     window.db = db;
     window.currentUser = null;
     window.currentPip = null;
+    window.allUsersMap = {};
     window.activeWeek = 1;
     window.signaturePad = null;
     window.targetSignRole = null;
@@ -354,6 +353,12 @@
           await setDoc(uRef, u);
         }
       }
+
+      const usersSnap = await getDocs(collection(db, "users"));
+      usersSnap.forEach(d => {
+        const u = d.data();
+        window.allUsersMap[u.email] = u.name;
+      });
 
       const savedUser = localStorage.getItem("pip_logged_user");
       if (savedUser) {
@@ -465,6 +470,7 @@
       
       usersSnap.forEach(d => {
         const u = d.data();
+        window.allUsersMap[u.email] = u.name;
         userHtml += `<tr class="border-b p-2">
           <td class="p-2">${u.email}</td>
           <td class="p-2">${u.name}</td>
@@ -616,10 +622,13 @@
       document.getElementById("viewManager").classList.add("hidden");
       document.getElementById("viewPipEditor").classList.remove("hidden");
 
+      const pubName = window.allUsersMap[p.publisherEmail] || p.publisherEmail;
+      const mgrNames = (p.assignedManagers || []).map(m => window.allUsersMap[m] || m).join(", ");
+
       document.getElementById("editorEmpName").innerText = p.empName;
       document.getElementById("editorDates").innerText = p.startDate + " ~ " + p.endDate;
-      document.getElementById("editorPublisher").innerText = p.publisherEmail;
-      document.getElementById("editorManagers").innerText = p.assignedManagers.join(", ");
+      document.getElementById("editorPublisher").innerText = pubName;
+      document.getElementById("editorManagers").innerText = mgrNames;
       document.getElementById("editorStatus").innerText = p.status;
       document.getElementById("editorEmpAckDate").innerText = p.empAckDate || "尚未確認接收";
       document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
@@ -815,7 +824,7 @@
       }
 
       const wData = (window.currentPip.weeklyReviews || {})[w] || {};
-      document.getElementById("wEmpProgress").innerText = (wData.progress || 0) + "%";
+      document.getElementById("wEmpProgress").innerText = wData.driveLink || wData.notes ? "已回報" : "進行中";
       document.getElementById("wEmpDriveLink").href = wData.driveLink || "#";
       document.getElementById("wEmpDriveLink").innerText = wData.driveLink ? "開啟同仁提供之檔案 ↗" : "尚未提供";
       document.getElementById("wEmpNotes").innerText = wData.notes || "無";
@@ -837,7 +846,7 @@
       
       html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
         <span class="text-xs text-slate-500 block mb-1">受輔導同仁</span>
-        <span class="text-[10px] text-indigo-600 font-bold block mb-2">${window.currentPip.empName}</span>
+        <span class="text-[11px] text-indigo-600 font-bold block mb-2">${window.currentPip.empName}</span>
         ${empSign 
           ? `<img src="${empSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已簽名簽回</span><span class="text-[9px] text-slate-400 block">${empSignTime}</span>` 
           : (isCurrentEmp 
@@ -853,11 +862,11 @@
         const mgrSign = (window.currentPip.signatures || {})[mgrEmail];
         const mgrSignTime = (window.currentPip.signatures || {})[mgrEmail + '_time'] || '';
         const isCurrentMgr = window.currentUser.email === mgrEmail;
-        const isPublisher = mgrEmail === pubEmail;
+        const mgrName = window.allUsersMap[mgrEmail] || mgrEmail;
         
         html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
-          <span class="text-xs text-slate-500 block mb-1">${isPublisher ? '★ 正式發布主管' : '輔導主管'}</span>
-          <span class="text-[10px] text-indigo-600 font-bold block mb-2">${mgrEmail}</span>
+          <span class="text-xs text-slate-500 block mb-1">輔導主管</span>
+          <span class="text-[11px] text-indigo-600 font-bold block mb-2">${mgrName}</span>
           ${mgrSign 
             ? `<img src="${mgrSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已確認簽核</span><span class="text-[9px] text-slate-400 block">${mgrSignTime}</span>` 
             : (isCurrentMgr 
@@ -1069,7 +1078,7 @@
       }
     }
 
-    // 核心重構：生成正式 A4 公文報告格式 PDF (含 4 期完整歷程、佐證網址、手寫簽名與精確時間戳記)
+    // 核心重構：生成正式 A4 公文報告格式 PDF (移除完成度 % 數)
     function exportToPdf() {
       const p = window.currentPip;
       const sigs = p.signatures || {};
@@ -1083,7 +1092,6 @@
         return;
       }
 
-      // 1. 組裝改善指標 HTML
       let indPdfHtml = "";
       (p.indicators || []).forEach((ind, i) => {
         indPdfHtml += `<div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 8px; background: #f8fafc;">
@@ -1094,7 +1102,6 @@
         </div>`;
       });
 
-      // 2. 組裝工作任務清單 HTML
       let taskPdfHtml = "";
       (p.checklist || []).forEach((item, i) => {
         taskPdfHtml += `<div style="font-size: 11px; padding: 4px 8px; border-bottom: 1px solid #e2e8f0;">
@@ -1102,14 +1109,13 @@
         </div>`;
       });
 
-      // 3. 組裝 4 期完整追蹤歷程 HTML
       let historyPdfHtml = "";
       for (let w = 1; w <= 4; w++) {
         const wData = (p.weeklyReviews || {})[w] || {};
         historyPdfHtml += `<div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 10px; background: #fff;">
-          <div style="font-weight: bold; color: #0f172a; border-b: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
+          <div style="font-weight: bold; color: #0f172a; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
             <span>第 ${w} 期追蹤評估紀錄</span>
-            <span style="color: #2563eb;">評核結果：${wData.result || '尚未評核'} (完成度: ${wData.progress || 0}%)</span>
+            <span style="color: #2563eb;">評核結果：${wData.result || '尚未評核'}</span>
           </div>
           <div style="font-size: 11px; color: #475569; margin-bottom: 4px;">
             <b>同仁心得/SOP繳交：</b> ${wData.notes || '無'}<br>
@@ -1121,9 +1127,7 @@
         </div>`;
       }
 
-      // 4. 組裝雙方簽名檔與時間戳記 HTML
       let sigsPdfHtml = "";
-      // 同仁簽名
       const empSign = sigs['emp'];
       const empTime = sigs['emp_time'] || '';
       sigsPdfHtml += `<div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; text-align: center; border-radius: 6px; background: #fafafa;">
@@ -1133,24 +1137,26 @@
         <div style="font-size: 9px; color: #94a3b8;">${empTime}</div>
       </div>`;
 
-      // 主管群簽名
       allMgrs.forEach(m => {
         const mgrSign = sigs[m];
         const mgrTime = sigs[m + '_time'] || '';
-        const isPub = m === pubEmail;
+        const mgrName = window.allUsersMap[m] || m;
+        
         sigsPdfHtml += `<div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; text-align: center; border-radius: 6px; background: #fafafa; margin-left: 8px;">
-          <div style="font-size: 11px; color: #64748b;">${isPub ? '★ 正式發布主管' : '輔導主管'}</div>
-          <div style="font-weight: bold; font-size: 10px; margin: 2px 0; color: #3730a3;">${m}</div>
+          <div style="font-size: 11px; color: #64748b;">輔導主管簽名</div>
+          <div style="font-weight: bold; font-size: 11px; margin: 2px 0; color: #3730a3;">${mgrName}</div>
           ${mgrSign ? `<img src="${mgrSign}" style="height: 45px; margin: 4px auto;">` : '<div style="height:45px;">-</div>'}
           <div style="font-size: 9px; color: #94a3b8;">${mgrTime}</div>
         </div>`;
       });
 
-      // 5. 渲染寫入 PDF 專用印刷 DOM 容器
+      const pubName = window.allUsersMap[p.publisherEmail] || p.publisherEmail;
+      const mgrNames = (p.assignedManagers || []).map(m => window.allUsersMap[m] || m).join(", ");
+
       const pdfContainer = document.getElementById("pdfExportArea");
       pdfContainer.innerHTML = `
         <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
-          <div style="font-size: 14px; font-weight: bold; color: #475569; tracking-wider">友士國際會計師事務所</div>
+          <div style="font-size: 14px; font-weight: bold; color: #475569;">友士國際會計師事務所</div>
           <div style="font-size: 22px; font-weight: bold; color: #0f172a; margin-top: 4px;">績效改善計畫期末報告書 (PIP Report)</div>
         </div>
 
@@ -1163,8 +1169,14 @@
           </tr>
           <tr>
             <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">正式發布主管</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1;">${p.publisherEmail}</td>
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">確認接收日期</th>
+            <td style="padding: 6px; border: 1px solid #cbd5e1;">${pubName}</td>
+            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">輔導主管群</th>
+            <td style="padding: 6px; border: 1px solid #cbd5e1;">${mgrNames}</td>
+          </tr>
+          <tr>
+            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">專案當前狀態</th>
+            <td style="padding: 6px; border: 1px solid #cbd5e1;">${p.status}</td>
+            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">同仁確認接收日期</th>
             <td style="padding: 6px; border: 1px solid #cbd5e1;">${p.empAckDate || '已確認'}</td>
           </tr>
         </table>
@@ -1191,12 +1203,11 @@
         </div>
 
         <div>
-          <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 6px;">五、 雙方會簽確認記錄 (含時間戳記)</div>
+          <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 6px;">五、 雙方會簽確認記錄 (含手寫簽名與時間戳記)</div>
           <div style="display: flex; justify-content: space-between;">${sigsPdfHtml}</div>
         </div>
       `;
 
-      // 6. 執行導出高解析度 A4 PDF
       pdfContainer.classList.remove("hidden");
       const opt = {
         margin: 0.4,
@@ -1255,6 +1266,24 @@
       }
 
       window.currentPip = empPip;
+
+      // 自動記錄接收日期 (當同仁點擊進入檢視，且先前未記錄過時)
+      if (!window.currentPip.empAckDate) {
+        autoConfirmEmpAck();
+      } else {
+        renderEmployeeCard();
+      }
+    }
+
+    async function autoConfirmEmpAck() {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
+      window.currentPip.empAckDate = dateStr;
+      
+      const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
+
+      triggerEmailNotification("emp_ack");
       renderEmployeeCard();
     }
 
@@ -1285,9 +1314,7 @@
 
       const empSign = (empPip.signatures || {})['emp'];
 
-      let ackBlock = empPip.empAckDate 
-        ? `<span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200"><i class="fa-solid fa-circle-check mr-1"></i>已於 ${empPip.empAckDate} 確認接收本 PIP 計畫</span>`
-        : `<button onclick="confirmEmpAck()" class="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded shadow hover:bg-indigo-700 transition"><i class="fa-solid fa-file-signature mr-1"></i>點此確認接收並承接此 PIP 工作內容</button>`;
+      let ackBlock = `<span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200"><i class="fa-solid fa-circle-check mr-1"></i>已於 ${empPip.empAckDate} 確認接收本 PIP 計畫</span>`;
 
       let html = `
         <div class="flex justify-between items-center border-b pb-3">
@@ -1305,10 +1332,7 @@
         </div>
 
         <div class="bg-slate-50 border p-4 rounded-lg space-y-2">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="text-sm font-bold text-slate-800">☑ 具體工作任務清單 (請勾選已完成項目)</h3>
-            <span id="empProgressPercent" class="text-xs font-bold text-indigo-600"></span>
-          </div>
+          <h3 class="text-sm font-bold text-slate-800 mb-2">☑ 具體工作任務清單 (請勾選已完成項目)</h3>
           <div class="space-y-2">${checklistHtml || '<p class="text-xs text-slate-400">目前尚無指定任務項目</p>'}</div>
         </div>
 
@@ -1353,35 +1377,12 @@
         </div>
       `;
       document.getElementById("empPipCard").innerHTML = html;
-      updateEmpProgressPercent();
       loadEmpWeekData(1);
-    }
-
-    async function confirmEmpAck() {
-      const now = new Date();
-      const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
-      window.currentPip.empAckDate = dateStr;
-      
-      const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-      await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
-
-      triggerEmailNotification("emp_ack");
-      alert(`已成功確認接收！記錄日期為 ${dateStr}`);
-      renderEmployeeCard();
     }
 
     function toggleEmpChecklist(idx, checked) {
       window.currentPip.checklist[idx].done = checked;
-      updateEmpProgressPercent();
-    }
-
-    function updateEmpProgressPercent() {
-      const list = window.currentPip.checklist || [];
-      if (list.length === 0) return;
-      const doneCount = list.filter(i => i.done).length;
-      const pct = Math.round((doneCount / list.length) * 100);
-      const el = document.getElementById("empProgressPercent");
-      if (el) el.innerText = `完成度：${doneCount}/${list.length} (${pct}%)`;
+      savePipDataToDb();
     }
 
     function loadEmpWeekData(w) {
@@ -1393,14 +1394,10 @@
 
     async function submitEmpWeekData() {
       const w = window.activeWeek;
-      const list = window.currentPip.checklist || [];
-      const doneCount = list.filter(i => i.done).length;
-      const pct = list.length > 0 ? Math.round((doneCount / list.length) * 100) : 0;
 
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
       window.currentPip.weeklyReviews[w] = {
         ...window.currentPip.weeklyReviews[w],
-        progress: pct,
         driveLink: document.getElementById("empDriveInput").value,
         notes: document.getElementById("empNotesInput").value
       };
