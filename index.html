@@ -127,15 +127,16 @@
 
     <!-- 4. PIP 編輯與分頁覆核作業區 (Manager Shared Area) -->
     <div id="viewPipEditor" class="hidden space-y-6">
-      <button onclick="backToDashboard()" class="text-sm text-slate-600 hover:text-slate-900"><i class="fa-solid fa-arrow-left mr-1"></i>返回總覽</button>
+      <button onclick="backToDashboard()" class="text-sm text-slate-600 hover:text-slate-900 print-hide"><i class="fa-solid fa-arrow-left mr-1"></i>返回總覽</button>
       
-      <div class="flex border-b bg-white rounded-t-xl overflow-hidden shadow">
+      <div class="flex border-b bg-white rounded-t-xl overflow-hidden shadow print-hide" id="adminStepTabsBar">
         <button onclick="switchAdminStepTab(1)" id="stepTab1" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50/50"><i class="fa-solid fa-pen-to-square mr-2"></i>步驟一：指標與任務設定</button>
         <button onclick="switchAdminStepTab(2)" id="stepTab2" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-bars-progress mr-2"></i>步驟二：4 期歷程追蹤與建議</button>
         <button onclick="switchAdminStepTab(3)" id="stepTab3" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-signature mr-2"></i>步驟三：期末結案與多主管簽核</button>
       </div>
 
-      <div class="bg-white rounded-b-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
+      <!-- 可直接被畫面擷取導出 PDF 的主要區塊 -->
+      <div id="editorCaptureArea" class="bg-white rounded-b-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
         
         <div class="border-b pb-4 text-center">
           <p class="text-sm font-bold text-slate-600 tracking-wider">友士國際會計師事務所</p>
@@ -166,7 +167,7 @@
           <div>
             <div class="flex justify-between items-center mb-3">
               <h3 class="text-base font-bold text-slate-900">一、 核心改善指標與具體執行標準</h3>
-              <button id="btnAddIndBtn" onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-100 font-bold">+ 新增改善指標</button>
+              <button id="btnAddIndBtn" onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-100 font-bold print-hide">+ 新增改善指標</button>
             </div>
             <div id="indicatorsContainer" class="space-y-3"></div>
           </div>
@@ -174,7 +175,7 @@
           <div class="border-t pt-6">
             <div class="flex justify-between items-center mb-3">
               <h3 class="text-base font-bold text-slate-900">二、 具體工作任務清單 ( Check List )</h3>
-              <button id="btnAddTaskBtn" onclick="addChecklistItem()" class="text-xs bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded hover:bg-emerald-100 font-bold">+ 新增任務項目</button>
+              <button id="btnAddTaskBtn" onclick="addChecklistItem()" class="text-xs bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded hover:bg-emerald-100 font-bold print-hide">+ 新增任務項目</button>
             </div>
             <div id="checklistContainer" class="space-y-3"></div>
           </div>
@@ -184,7 +185,7 @@
         <div id="stepSection2" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">三、 4 期追蹤評估機制與主管評語</h3>
           
-          <div class="flex space-x-2 border-b mb-4" id="weekTabs">
+          <div class="flex space-x-2 border-b mb-4 print-hide" id="weekTabs">
             <button onclick="switchWeekTab(1)" id="tabW1" class="px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600">第一期</button>
             <button onclick="switchWeekTab(2)" id="tabW2" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第二期</button>
             <button onclick="switchWeekTab(3)" id="tabW3" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第三期</button>
@@ -218,9 +219,9 @@
           </div>
         </div>
 
-        <!-- 步驟三 (簽名區域明確呈現，絕不隱藏) -->
+        <!-- 步驟三 (簽名區域明確放在步驟三之內，無隱藏遮蔽) -->
         <div id="stepSection3" class="hidden space-y-6">
-          <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與雙方會簽確認</h3>
+          <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
           <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
             <div class="space-y-2 text-sm">
@@ -239,15 +240,16 @@
           </div>
 
           <div class="border-t pt-6">
-            <h3 class="text-base font-bold text-slate-900 mb-2"><i class="fa-solid fa-file-signature text-indigo-600 mr-2"></i>五、 主管與員工會簽確認狀態 (全體確認後方可結案)</h3>
-            <p class="text-xs text-slate-500 mb-4">發布主管與指派參與的主管登入後均需點擊「確認簽核」。全體簽名完成後，發布主管可點擊【完成結案】，通知同仁登入簽回。</p>
+            <h3 class="text-base font-bold text-slate-900 mb-2"><i class="fa-solid fa-file-signature text-indigo-600 mr-2"></i>五、 主管與同仁會簽手寫簽名區</h3>
+            <p class="text-xs text-slate-500 mb-4 print-hide">發布主管與指派參與的主管登入後均可點擊「點此確認簽核」進行手寫簽名。全體簽名完成後方可執行結案。</p>
             <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
           </div>
         </div>
+
       </div>
 
       <!-- 操作按鈕區 -->
-      <div class="flex flex-wrap gap-3 justify-end bg-white p-4 rounded-xl shadow border">
+      <div class="flex flex-wrap gap-3 justify-end bg-white p-4 rounded-xl shadow border print-hide">
         <button id="btnSaveDraft" onclick="saveDraftOnly()" class="bg-slate-600 text-white px-4 py-2 rounded text-sm hover:bg-slate-700"><i class="fa-solid fa-floppy-disk mr-1"></i>純儲存變更 (不發信)</button>
         <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布任務 (發給同仁)</button>
         <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (通知同仁)</button>
@@ -264,11 +266,8 @@
 
   </div>
 
-  <!-- 隱藏區塊：專門用來轉發生成高畫質 PDF 公文報告 -->
-  <div id="pdfExportArea" class="hidden bg-white p-8 space-y-6 text-slate-900 text-sm" style="width: 780px; margin: 0 auto; background: #ffffff;"></div>
-
   <!-- 獨立的「👁️ 檢視內容 Modal 視窗」 -->
-  <div id="previewModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+  <div id="previewModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 print-hide">
     <div class="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl border">
       <div class="flex justify-between items-center border-b pb-3">
         <h3 id="previewModalTitle" class="text-base font-bold text-slate-900"><i class="fa-solid fa-eye text-indigo-600 mr-2"></i>檢視內容</h3>
@@ -282,7 +281,7 @@
   </div>
 
   <!-- 首登修改密碼 Modal -->
-  <div id="firstLoginModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+  <div id="firstLoginModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 print-hide">
     <div class="bg-white rounded-xl p-6 max-w-sm w-full space-y-4 shadow-xl">
       <h3 class="text-lg font-bold text-slate-900 text-center"><i class="fa-solid fa-key text-amber-500 mr-2"></i>首次登入 - 請變更新密碼</h3>
       <p class="text-xs text-slate-500 text-center">為了保障您的資訊安全，請設定一組只有您知道的新密碼。</p>
@@ -292,7 +291,7 @@
   </div>
 
   <!-- 簽名 Modal -->
-  <div id="signModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div id="signModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print-hide">
     <div class="bg-white rounded-xl p-6 max-w-md w-full space-y-4">
       <h3 class="text-lg font-bold text-slate-900">線上電子簽名</h3>
       <div class="border rounded-lg bg-slate-50">
@@ -844,7 +843,7 @@
       }
     }
 
-    // 主管與同仁簽名面板渲染 (完全開放顯示，保證不缺漏)
+    // 主管與同仁簽名區域渲染 (呈現真實姓名，具備點擊簽名與完成呈現)
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       let html = "";
@@ -859,7 +858,7 @@
         ${empSign 
           ? `<img src="${empSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已簽名簽回</span><span class="text-[9px] text-slate-400 block">${empSignTime}</span>` 
           : (isCurrentEmp 
-              ? `<button onclick="openSignModal('emp')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow">點此簽名</button>` 
+              ? `<button onclick="openSignModal('emp')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow print-hide">點此簽名</button>` 
               : `<span class="text-xs text-amber-600 block my-2 font-semibold">待同仁簽回</span>`)}
       </div>`;
 
@@ -880,7 +879,7 @@
           ${mgrSign 
             ? `<img src="${mgrSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已確認簽核</span><span class="text-[9px] text-slate-400 block">${mgrSignTime}</span>` 
             : (isCurrentMgr 
-                ? `<button onclick="openSignModal('${mgrEmail}')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow">點此確認簽核</button>` 
+                ? `<button onclick="openSignModal('${mgrEmail}')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow print-hide">點此確認簽核</button>` 
                 : `<span class="text-xs text-slate-400 block my-2">待主管簽核</span>`)}
         </div>`;
       });
@@ -1088,7 +1087,7 @@
       }
     }
 
-    // 專用高質感印刷 PDF 生成函數
+    // 直接將螢幕目前完全繪製好的 DOM 畫面進行擷取，導出 100% 帶手寫簽名與時間的 PDF
     async function exportToPdf() {
       const p = window.currentPip;
       const sigs = p.signatures || {};
@@ -1102,135 +1101,41 @@
         return;
       }
 
-      let indPdfHtml = "";
-      (p.indicators || []).forEach((ind, i) => {
-        indPdfHtml += `<div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 8px; background: #f8fafc;">
-          <div style="font-weight: bold; color: #1e293b; margin-bottom: 4px;">指標 ${i+1}：${ind.title || ''}</div>
-          <div style="font-size: 11px; color: #334155; margin-bottom: 2px;"><b>改善目標：</b> ${ind.objective || '無'}</div>
-          <div style="font-size: 11px; color: #334155; margin-bottom: 2px;"><b>具體要求：</b> ${ind.expectation || '無'}</div>
-          <div style="font-size: 11px; color: #334155; margin-bottom: 2px;"><b>達標標準：</b> ${ind.kpi || '無'} | <b>支援資源：</b> ${ind.support || '無'}</div>
-        </div>`;
-      });
+      const targetElement = window.currentUser.role === 'employee' 
+        ? document.getElementById("empPipCard")
+        : document.getElementById("editorCaptureArea");
 
-      let taskPdfHtml = "";
-      (p.checklist || []).forEach((item, i) => {
-        taskPdfHtml += `<div style="font-size: 11px; padding: 4px 8px; border-bottom: 1px solid #e2e8f0;">
-          [${item.done ? '✓ 已完成' : '☐ 未完成'}] ${i+1}. ${item.text || ''}
-        </div>`;
-      });
-
-      let historyPdfHtml = "";
-      for (let w = 1; w <= 4; w++) {
-        const wData = (p.weeklyReviews || {})[w] || {};
-        historyPdfHtml += `<div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 10px; background: #fff;">
-          <div style="font-weight: bold; color: #0f172a; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-            <span>第 ${w} 期追蹤評估紀錄</span>
-            <span style="color: #2563eb;">評核結果：${wData.result || '尚未評核'}</span>
-          </div>
-          <div style="font-size: 11px; color: #475569; margin-bottom: 4px;">
-            <b>同仁心得/SOP繳交：</b> ${wData.notes || '無'}<br>
-            <b>佐證連結：</b> ${wData.driveLink || '尚未提供'}
-          </div>
-          <div style="font-size: 11px; color: #1e1b4b; background: #f1f5f9; padding: 6px; border-radius: 4px;">
-            <b>主管評語與改善建議：</b> ${wData.managerComment || '無'}
-          </div>
-        </div>`;
+      if (!targetElement) {
+        alert("找不到擷取畫面容器！");
+        return;
       }
 
-      let sigsPdfHtml = "";
-      const empSign = sigs['emp'];
-      const empTime = sigs['emp_time'] || '';
-      sigsPdfHtml += `<div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; text-align: center; border-radius: 6px; background: #fafafa;">
-        <div style="font-size: 11px; color: #64748b;">受輔導同仁簽名</div>
-        <div style="font-weight: bold; font-size: 12px; margin: 2px 0;">${p.empName}</div>
-        ${empSign ? `<img src="${empSign}" style="height: 45px; margin: 4px auto; display: block;">` : '<div style="height:45px;">-</div>'}
-        <div style="font-size: 9px; color: #94a3b8;">${empTime}</div>
-      </div>`;
+      // 展開所有步驟分頁供完整擷取畫面
+      const sec1 = document.getElementById("stepSection1");
+      const sec2 = document.getElementById("stepSection2");
+      const sec3 = document.getElementById("stepSection3");
+      if (sec1) sec1.classList.remove("hidden");
+      if (sec2) sec2.classList.remove("hidden");
+      if (sec3) sec3.classList.remove("hidden");
 
-      allMgrs.forEach(m => {
-        const mgrSign = sigs[m];
-        const mgrTime = sigs[m + '_time'] || '';
-        const mgrName = window.allUsersMap[m] || m;
-        
-        sigsPdfHtml += `<div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; text-align: center; border-radius: 6px; background: #fafafa; margin-left: 8px;">
-          <div style="font-size: 11px; color: #64748b;">輔導主管簽名</div>
-          <div style="font-weight: bold; font-size: 11px; margin: 2px 0; color: #3730a3;">${mgrName}</div>
-          ${mgrSign ? `<img src="${mgrSign}" style="height: 45px; margin: 4px auto; display: block;">` : '<div style="height:45px;">-</div>'}
-          <div style="font-size: 9px; color: #94a3b8;">${mgrTime}</div>
-        </div>`;
-      });
+      // 隱藏不需印出的按鈕與頁籤
+      document.querySelectorAll(".print-hide").forEach(el => el.classList.add("hidden"));
 
-      const pubName = window.allUsersMap[p.publisherEmail] || p.publisherEmail;
-      const mgrNames = (p.assignedManagers || []).map(m => window.allUsersMap[m] || m).join(", ");
-
-      const pdfContainer = document.getElementById("pdfExportArea");
-      pdfContainer.innerHTML = `
-        <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
-          <div style="font-size: 14px; font-weight: bold; color: #475569;">友士國際會計師事務所</div>
-          <div style="font-size: 22px; font-weight: bold; color: #0f172a; margin-top: 4px;">績效改善計畫期末報告書 (PIP Report)</div>
-        </div>
-
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; border: 1px solid #cbd5e1;">
-          <tr style="background: #f1f5f9;">
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left; width: 15%;">受輔導同仁</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1; width: 35%;">${p.empName} (${p.empEmail})</td>
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left; width: 15%;">執行區間</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1; width: 35%;">${p.startDate} ~ ${p.endDate}</td>
-          </tr>
-          <tr>
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">正式發布主管</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1;">${pubName}</td>
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">輔導主管群</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1;">${mgrNames}</td>
-          </tr>
-          <tr>
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">專案當前狀態</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1;">${p.status}</td>
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">同仁確認接收日期</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1;">${p.empAckDate || '已確認'}</td>
-          </tr>
-        </table>
-
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-left: 3px solid #4f46e5; padding-left: 6px;">一、 核心改善指標項目</div>
-          ${indPdfHtml}
-        </div>
-
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-left: 3px solid #10b981; padding-left: 6px;">二、 具體工作任務交付清單 (Checklist)</div>
-          <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: #fff;">${taskPdfHtml}</div>
-        </div>
-
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-left: 3px solid #2563eb; padding-left: 6px;">三、 4 期歷程追蹤與主管指導評語紀錄</div>
-          ${historyPdfHtml}
-        </div>
-
-        <div style="margin-bottom: 16px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc;">
-          <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">四、 期末總評估與最終處置結果</div>
-          <div style="font-size: 12px; font-weight: bold; color: #4f46e5; margin-bottom: 4px;">處置結果：${p.finalOutcome || '通過 PIP'} ${p.extendDate ? '(延長至:'+p.extendDate+')' : ''}</div>
-          <div style="font-size: 11px; color: #334155;"><b>主管綜合總評：</b> ${p.finalSummary || '無'}</div>
-        </div>
-
-        <div>
-          <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin-bottom: 6px;">五、 雙方會簽確認記錄 (含手寫簽名與時間戳記)</div>
-          <div style="display: flex; justify-content: space-between;">${sigsPdfHtml}</div>
-        </div>
-      `;
-
-      pdfContainer.classList.remove("hidden");
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 300)); // 等待 DOM 完全繪製
 
       const opt = {
-        margin: 0.4,
+        margin: 0.3,
         filename: `友士國際會計師事務所_PIP改善計畫期末報告_${p.empName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
       };
 
-      await html2pdf().set(opt).from(pdfContainer).save();
-      pdfContainer.classList.add("hidden");
+      await html2pdf().set(opt).from(targetElement).save();
+
+      // 匯出後還原頁面原始分頁狀態
+      switchAdminStepTab(3);
+      document.querySelectorAll(".print-hide").forEach(el => el.classList.remove("hidden"));
     }
 
     function backToDashboard() {
@@ -1302,7 +1207,7 @@
       const isClosed = empPip.status === "已結案";
 
       let driveBtn = empPip.driveUploadUrl 
-        ? `<a href="${empPip.driveUploadUrl}" target="_blank" class="inline-block bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded shadow hover:bg-indigo-700 transition"><i class="fa-brands fa-google-drive mr-1"></i>點此開啟 Google Drive 雲端資料夾上傳佐證檔案 ↗</a>`
+        ? `<a href="${empPip.driveUploadUrl}" target="_blank" class="inline-block bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded shadow hover:bg-indigo-700 transition print-hide"><i class="fa-brands fa-google-drive mr-1"></i>點此開啟 Google Drive 雲端資料夾上傳佐證檔案 ↗</a>`
         : `<span class="text-xs text-slate-400">主管尚未指定雲端上傳資料夾</span>`;
 
       let checklistHtml = "";
@@ -1334,7 +1239,7 @@
         </div>` : `
         <div class="border p-4 rounded-lg bg-slate-50 space-y-4">
           <h3 class="text-sm font-bold">每期進度回報 (第 1 ~ 4 期)</h3>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs print-hide">
             <select id="empWeekSelect" onchange="loadEmpWeekData(this.value)" class="p-2 border rounded font-semibold bg-white">
               <option value="1">第一期 (Phase 1)</option>
               <option value="2">第二期 (Phase 2)</option>
@@ -1352,7 +1257,7 @@
               <label class="block text-xs text-slate-600 mb-1">個人工作心得 / SOP 繳交備註 (大輸入框)</label>
               <textarea id="empNotesInput" rows="4" placeholder="請填寫當期心得說明..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
             </div>
-            <button onclick="submitEmpWeekData()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded text-xs font-semibold shadow">確認送出當期進度 (自動寄信通知主管群)</button>
+            <button onclick="submitEmpWeekData()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded text-xs font-semibold shadow print-hide">確認送出當期進度 (自動寄信通知主管群)</button>
           </div>
         </div>`;
 
@@ -1365,7 +1270,7 @@
           <div>${ackBlock}</div>
         </div>
 
-        ${empPip.status === '退回修訂中' ? `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs font-bold flex items-center"><i class="fa-solid fa-triangle-exclamation mr-2 text-amber-600 text-base"></i>主管退回修訂提示：您提交的進度資料主管已提出建議，請重新編輯並下方送出！</div>` : ''}
+        ${empPip.status === '退回修訂中' ? `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs font-bold flex items-center print-hide"><i class="fa-solid fa-triangle-exclamation mr-2 text-amber-600 text-base"></i>主管退回修訂提示：您提交的進度資料主管已提出建議，請重新編輯並下方送出！</div>` : ''}
 
         <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
           <h4 class="text-xs font-bold text-indigo-900 mb-1">📁 佐證資料上傳專區</h4>
@@ -1393,10 +1298,10 @@
           <h4 class="text-xs font-bold text-slate-700">受輔導同仁期末正式簽名簽回</h4>
           ${empSign 
             ? `<img src="${empSign}" class="h-14 mx-auto"><span class="text-xs text-emerald-600 font-bold block">✓ 您已完成線上簽名簽回</span>` 
-            : `<button onclick="openSignModal('emp')" class="bg-indigo-600 text-white text-xs font-bold px-5 py-2 rounded shadow hover:bg-indigo-700 transition"><i class="fa-solid fa-pen-nib mr-1"></i>點此進行同仁期末手寫簽名簽回</button>`}
+            : `<button onclick="openSignModal('emp')" class="bg-indigo-600 text-white text-xs font-bold px-5 py-2 rounded shadow hover:bg-indigo-700 transition print-hide"><i class="fa-solid fa-pen-nib mr-1"></i>點此進行同仁期末手寫簽名簽回</button>`}
         </div>
 
-        ${isClosed ? `<div class="flex justify-end pt-2"><button onclick="exportToPdf()" class="bg-slate-900 text-white px-5 py-2 rounded text-xs font-bold shadow hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>下載正式合規 PDF 報告</button></div>` : ''}
+        ${isClosed ? `<div class="flex justify-end pt-2 print-hide"><button onclick="exportToPdf()" class="bg-slate-900 text-white px-5 py-2 rounded text-xs font-bold shadow hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>下載正式合規 PDF 報告</button></div>` : ''}
       `;
       document.getElementById("empPipCard").innerHTML = html;
       if (!isClosed) loadEmpWeekData(1);
