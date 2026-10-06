@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>企業級 PIP 績效改善計畫管理系統</title>
+  <title>友士國際會計師事務所 - PIP 績效改善計畫管理系統</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome -->
@@ -19,8 +19,8 @@
   <nav class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center space-x-3">
-        <i class="fa-solid fa-clipboard-check text-indigo-400 text-2xl"></i>
-        <span class="font-bold text-lg tracking-wide">PIP 績效改善計畫管理系統</span>
+        <i class="fa-solid fa-building-columns text-indigo-400 text-xl"></i>
+        <span class="font-bold text-lg tracking-wide">友士國際會計師事務所 - PIP 管理系統</span>
       </div>
       <div id="userInfoBar" class="hidden flex items-center space-x-4 text-sm">
         <span id="userRoleBadge" class="bg-indigo-600 px-2.5 py-1 rounded-full text-xs font-semibold"></span>
@@ -34,8 +34,10 @@
 
     <!-- 1. 登入區塊 -->
     <div id="viewLogin" class="max-w-md mx-auto my-12 bg-white rounded-xl shadow-lg p-8 border border-slate-200">
-      <h2 class="text-2xl font-bold text-slate-900 mb-2 text-center">系統登入</h2>
-      <p class="text-sm text-slate-500 mb-6 text-center">請輸入管理員核發之 Email 與密碼</p>
+      <div class="text-center mb-6">
+        <h2 class="text-2xl font-bold text-slate-900">系統登入</h2>
+        <p class="text-sm text-indigo-600 font-semibold mt-1">友士國際會計師事務所</p>
+      </div>
       
       <form onsubmit="handleLogin(event)" class="space-y-4">
         <div>
@@ -63,7 +65,7 @@
 
       <!-- 帳號管理 -->
       <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
-        <h3 class="text-lg font-bold text-slate-900 mb-4"><i class="fa-solid fa-users-gear text-indigo-600 mr-2"></i>建立與維護帳號</h3>
+        <h3 class="text-lg font-bold text-slate-900 mb-4"><i class="fa-solid fa-users-gear text-indigo-600 mr-2"></i>建立與維護帳號 (包含查看密碼/重置)</h3>
         <form onsubmit="createUser(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <input type="email" id="newUserEmail" placeholder="使用者 Email" required class="px-3 py-2 border rounded-lg text-sm">
           <input type="text" id="newUserName" placeholder="姓名 / 職稱" required class="px-3 py-2 border rounded-lg text-sm">
@@ -137,8 +139,9 @@
         
         <!-- Header -->
         <div class="border-b pb-4 text-center">
-          <h1 class="text-2xl font-bold text-slate-900">績效改善計畫書（Performance Improvement Plan, PIP）</h1>
-          <p class="text-xs text-slate-500 mt-1">【法務與管理提示】本計畫書旨在輔導同仁提升專業水準。輔導過程與各階段評核紀錄均作為檢視輔導歷程與最後手段性原則之依據。</p>
+          <p class="text-sm font-bold text-slate-600 tracking-wider">友士國際會計師事務所</p>
+          <h1 class="text-2xl font-bold text-slate-900 mt-1">績效改善計畫書（Performance Improvement Plan, PIP）</h1>
+          <p class="text-xs text-slate-500 mt-1">【法務與管理提示】本計畫書旨在輔導同仁提升專業水準與職場表現。輔導過程與各階段評核紀錄均作為檢視輔導歷程與最後手段性原則之依據。</p>
         </div>
 
         <!-- 基本資料區 -->
@@ -239,11 +242,19 @@
 
     <!-- 5. 員工頁面 (Employee Portal) -->
     <div id="viewEmployee" class="hidden space-y-6">
-      <div id="empPipCard" class="bg-white rounded-xl shadow p-6 border border-slate-200">
-        <!-- 員工專屬介面由 JS 動態渲染 -->
-      </div>
+      <div id="empPipCard" class="bg-white rounded-xl shadow p-6 border border-slate-200"></div>
     </div>
 
+  </div>
+
+  <!-- 首登修改密碼 Modal -->
+  <div id="firstLoginModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl p-6 max-w-sm w-full space-y-4 shadow-xl">
+      <h3 class="text-lg font-bold text-slate-900 text-center"><i class="fa-solid fa-key text-amber-500 mr-2"></i>首次登入 - 請變更新密碼</h3>
+      <p class="text-xs text-slate-500 text-center">為了保障您的資訊安全，請設定一組只有您知道的新密碼。</p>
+      <input type="password" id="firstNewPassword" placeholder="輸入新密碼" required class="w-full px-3 py-2 border rounded-lg text-sm">
+      <button onclick="saveFirstLoginPassword()" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">完成設定並登入</button>
+    </div>
   </div>
 
   <!-- 簽名 Modal -->
@@ -268,7 +279,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 1. Firebase 配置 (已自動填入您的專案金鑰)
     const firebaseConfig = {
       apiKey: "AIzaSyAnikohFy1Ee6T4Yb0iuqdxqTwVZ-juzdM",
       authDomain: "my-company-pip.firebaseapp.com",
@@ -281,7 +291,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 全域變數
     window.db = db;
     window.currentUser = null;
     window.currentPip = null;
@@ -289,21 +298,25 @@
     window.signaturePad = null;
     window.targetSignRole = null;
 
-    // 初始化預設帳號 (第一次執行時寫入)
+    // 初始化 4 組指定預設帳號
     async function initSystemData() {
-      const adminRef = doc(db, "users", "admin@company.com");
-      const snap = await getDoc(adminRef);
-      if (!snap.exists()) {
-        await setDoc(adminRef, { email: "admin@company.com", name: "系統維護者", role: "super_admin", password: "admin" });
-        await setDoc(doc(db, "users", "celine@company.com"), { email: "celine@company.com", name: "Celine Lin (林宜貞)", role: "employee", password: "123" });
-        await setDoc(doc(db, "users", "audrey@company.com"), { email: "audrey@company.com", name: "Audrey Lin (會計師)", role: "manager", password: "123" });
-        await setDoc(doc(db, "users", "sincere@company.com"), { email: "sincere@company.com", name: "Sincere Huang (襄理)", role: "manager", password: "123" });
-        await setDoc(doc(db, "users", "jenny@company.com"), { email: "jenny@company.com", name: "Jenny Yang (襄理)", role: "manager", password: "123" });
+      const initUsers = [
+        { email: "service.desk@youth-cpa.com.tw", name: "系統維護者", role: "super_admin", password: "admin", isDefault: false },
+        { email: "sincere.huang@youth-cpa.com.tw", name: "Sincere Huang (襄理)", role: "super_admin", password: "sincere", isDefault: true },
+        { email: "jenny.yang@youth-cpa.com.tw", name: "Jenny Yang (襄理)", role: "manager", password: "jenny", isDefault: true },
+        { email: "celine.lin@youth-cpa.com.tw", name: "Celine Lin (林宜貞)", role: "employee", password: "celine", isDefault: true }
+      ];
+
+      for (const u of initUsers) {
+        const uRef = doc(db, "users", u.email);
+        const snap = await getDoc(uRef);
+        if (!snap.exists()) {
+          await setDoc(uRef, u);
+        }
       }
     }
     initSystemData();
 
-    // 初始化 SignaturePad
     window.onload = () => {
       const canvas = document.getElementById("signatureCanvas");
       if (canvas) {
@@ -312,21 +325,50 @@
     };
   </script>
 
-  <!-- 應用程式互動邏輯 -->
   <script>
-    // 登入處理
     async function handleLogin(e) {
       e.preventDefault();
-      const email = document.getElementById("loginEmail").value.trim();
+      const email = document.getElementById("loginEmail").value.trim().toLowerCase();
       const pwd = document.getElementById("loginPassword").value.trim();
 
-      const userSnap = await window.db.collection ? null : await getFirestoreDoc("users", email);
+      const userSnap = await getFirestoreDoc("users", email);
       if (!userSnap || userSnap.password !== pwd) {
         alert("帳號或密碼錯誤！");
         return;
       }
 
       window.currentUser = userSnap;
+
+      if (userSnap.isDefault) {
+        document.getElementById("firstLoginModal").classList.remove("hidden");
+        return;
+      }
+
+      enterSystem();
+    }
+
+    async function saveFirstLoginPassword() {
+      const newPwd = document.getElementById("firstNewPassword").value.trim();
+      if (!newPwd) {
+        alert("請輸入新密碼！");
+        return;
+      }
+
+      const { doc, updateDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await updateDoc(doc(getFirestore(), "users", window.currentUser.email), {
+        password: newPwd,
+        isDefault: false
+      });
+
+      window.currentUser.password = newPwd;
+      window.currentUser.isDefault = false;
+      document.getElementById("firstLoginModal").classList.add("hidden");
+      alert("密碼修改成功！即將進入系統。");
+      enterSystem();
+    }
+
+    function enterSystem() {
+      const userSnap = window.currentUser;
       document.getElementById("viewLogin").classList.add("hidden");
       document.getElementById("userInfoBar").classList.remove("hidden");
       document.getElementById("userEmailDisplay").innerText = userSnap.name + " (" + userSnap.email + ")";
@@ -354,26 +396,29 @@
       location.reload();
     }
 
-    // 儲存 GAS URL
     function saveGasUrl() {
       const url = document.getElementById("gasApiUrl").value.trim();
       localStorage.setItem("gasApiUrl", url);
       alert("GAS 發信 API 儲存成功！");
     }
 
-    // 載入 SuperAdmin 資料
     async function loadSuperAdminData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const db = getFirestore();
 
-      // 載入帳號
       const usersSnap = await getDocs(collection(db, "users"));
-      let userHtml = `<table class="w-full text-left text-xs border"><tr class="bg-slate-100 border-b p-2"><th>Email</th><th>姓名</th><th>角色</th></tr>`;
+      let userHtml = `<table class="w-full text-left text-xs border"><tr class="bg-slate-100 border-b p-2"><th>Email</th><th>姓名</th><th>角色</th><th>密碼 (管理者可見)</th><th>操作</th></tr>`;
       let empOptions = "", mgrOptions = "", mgrCheckboxes = "";
       
       usersSnap.forEach(d => {
         const u = d.data();
-        userHtml += `<tr class="border-b p-2"><td class="p-2">${u.email}</td><td class="p-2">${u.name}</td><td class="p-2">${u.role}</td></tr>`;
+        userHtml += `<tr class="border-b p-2">
+          <td class="p-2">${u.email}</td>
+          <td class="p-2">${u.name}</td>
+          <td class="p-2">${u.role}</td>
+          <td class="p-2 font-mono text-indigo-600 font-bold">${u.password}</td>
+          <td class="p-2"><button onclick="adminResetPwd('${u.email}')" class="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-200">重置密碼</button></td>
+        </tr>`;
         if (u.role === "employee") empOptions += `<option value="${u.email}">${u.name} (${u.email})</option>`;
         if (u.role === "manager" || u.role === "super_admin") {
           mgrOptions += `<option value="${u.email}">${u.name} (${u.email})</option>`;
@@ -386,8 +431,17 @@
       document.getElementById("pipPublisher").innerHTML = mgrOptions;
       document.getElementById("pipManagersCheckbox").innerHTML = mgrCheckboxes;
 
-      // 載入 PIP 專案
       loadMasterPipList();
+    }
+
+    async function adminResetPwd(email) {
+      const newPwd = prompt(`請輸入 ${email} 的新密碼：`);
+      if (newPwd) {
+        const { doc, updateDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await updateDoc(doc(getFirestore(), "users", email), { password: newPwd, isDefault: true });
+        alert("密碼已重置！該同仁下次登入時需要輸入此新密碼並重新設定。");
+        loadSuperAdminData();
+      }
     }
 
     async function loadMasterPipList() {
@@ -407,25 +461,23 @@
       document.getElementById("pipMasterList").innerHTML = html || "<p class='text-xs text-slate-400'>尚無 PIP 專案</p>";
     }
 
-    // 建立帳號
     async function createUser(e) {
       e.preventDefault();
-      const email = document.getElementById("newUserEmail").value.trim();
+      const email = document.getElementById("newUserEmail").value.trim().toLowerCase();
       const name = document.getElementById("newUserName").value.trim();
       const pwd = document.getElementById("newUserPassword").value.trim();
       const role = document.getElementById("newUserRole").value;
 
       const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-      await setDoc(doc(getFirestore(), "users", email), { email, name, password: pwd, role });
-      alert("帳號建立成功！");
+      await setDoc(doc(getFirestore(), "users", email), { email, name, password: pwd, role, isDefault: true });
+      alert("帳號建立成功！(已設為首登需變更密碼)");
       loadSuperAdminData();
     }
 
-    // 載入 SMART 預設合規範本 (完整帶入 Celine 檔樣式，可編修)
     function loadDefaultSmartTemplate() {
       window.tempIndicators = [
         {
-          title: "指標一：工作品质與自主覆核（品質落實）",
+          title: "指標一：工作品質與自主覆核（品質落實）",
           objective: "建立嚴格之自我覆核機制，確保所有交付案件內容精確，無因個人粗心錯誤導致資料遺漏。",
           expectation: "1. 落實 Check List 清單。\n2. 交付資料完整性 (如：BS, PL, TB, 401申報書等)。\n3. 客戶資料完整核對。",
           kpi: "粗心錯誤率每評估期僅可有 1 個；交付完整率 100%。",
@@ -456,7 +508,6 @@
       alert("已預載四大合規 SMART 指標範本！");
     }
 
-    // 建立 PIP 專案
     async function createPipProject(e) {
       e.preventDefault();
       const empEmail = document.getElementById("pipTargetEmployee").value;
@@ -494,7 +545,6 @@
       openPipEditor(pipId);
     }
 
-    // 打開 PIP 編輯器
     async function openPipEditor(pipId) {
       window.currentPip = await getFirestoreDoc("pips", pipId);
       const p = window.currentPip;
@@ -508,7 +558,6 @@
       document.getElementById("editorManagers").innerText = p.assignedManagers.join(", ");
       document.getElementById("editorStatus").innerText = p.status;
 
-      // 按鈕權限控管 (只有指定發布者才能看到正式發布按鈕)
       if (window.currentUser.email === p.publisherEmail || window.currentUser.role === "super_admin") {
         document.getElementById("btnPublish").classList.remove("hidden");
       } else {
@@ -520,7 +569,6 @@
       renderSignatures();
     }
 
-    // 渲染指標
     function renderIndicators() {
       const container = document.getElementById("indicatorsContainer");
       let html = "";
@@ -547,7 +595,6 @@
       renderIndicators();
     }
 
-    // 週 Tab 切換
     function switchWeekTab(w) {
       window.activeWeek = w;
       for (let i = 1; i <= 4; i++) {
@@ -572,12 +619,10 @@
       }
     }
 
-    // 簽名區塊渲染
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       let html = "";
       
-      // 員工簽名
       const empSign = (window.currentPip.signatures || {})['emp'];
       html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
         <span class="text-xs text-slate-500 block mb-2">受輔導員工</span>
@@ -585,7 +630,6 @@
         <span class="text-[10px] text-slate-400 block mt-1">${window.currentPip.empName}</span>
       </div>`;
 
-      // 參與主管簽名
       (window.currentPip.assignedManagers || []).forEach(mgrEmail => {
         const mgrSign = (window.currentPip.signatures || {})[mgrEmail];
         html += `<div class="border p-3 rounded-lg text-center bg-slate-50">
@@ -598,7 +642,6 @@
       grid.innerHTML = html;
     }
 
-    // 簽名 Modal 操作
     function openSignModal(role) {
       window.targetSignRole = role;
       document.getElementById("signModal").classList.remove("hidden");
@@ -625,11 +668,9 @@
       document.getElementById("extendDateBox").classList.toggle("hidden", !show);
     }
 
-    // 儲存 PIP 資料
     async function savePipData(status) {
       if (status) window.currentPip.status = status;
 
-      // 儲存當週主管評語
       const wRes = document.querySelector('input[name="wResult"]:checked');
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
       window.currentPip.weeklyReviews[window.activeWeek] = {
@@ -638,7 +679,6 @@
         managerComment: document.getElementById("wManagerComment").value
       };
 
-      // 期末結果 (採用簡潔版選項)
       const finalRes = document.querySelector('input[name="finalOutcome"]:checked');
       if (finalRes) window.currentPip.finalOutcome = finalRes.value;
       window.currentPip.extendDate = document.getElementById("finalExtendDate").value;
@@ -647,27 +687,23 @@
       const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
 
-      // 自動寄信觸發
       triggerEmailNotification(status);
-
       alert("資料已成功儲存與同步！");
     }
 
-    // 發布 PIP
     async function publishPip() {
       if (confirm("確定要正式發布此 PIP 給員工嗎？系統將自動發送通知信。")) {
         await savePipData("進行中");
       }
     }
 
-    // GAS 自動寄信觸發
     async function triggerEmailNotification(status) {
       const gasUrl = localStorage.getItem("gasApiUrl");
       if (!gasUrl) return;
 
       const p = window.currentPip;
-      let subject = `【PIP 通知】績效改善計畫狀態更新：${p.status}`;
-      let body = `<p>親愛的同仁/主管您好：</p><p>員工 <b>${p.empName}</b> 的 PIP 計畫狀態已更新為：<b>${p.status}</b>。</p><p>請登入 PIP 系統檢視詳細內容。</p>`;
+      let subject = `【友士國際會計師事務所 PIP 通知】狀態更新：${p.status}`;
+      let body = `<p>親愛的同仁/主管您好：</p><p>員工 <b>${p.empName}</b> 的 PIP 計畫狀態已更新為：<b>${p.status}</b>。</p><p>請登入系統檢視詳細內容。</p>`;
 
       try {
         await fetch(gasUrl, {
@@ -686,12 +722,11 @@
       }
     }
 
-    // 匯出合規 PDF
     function exportToPdf() {
       const element = document.getElementById("pdfExportArea");
       const opt = {
         margin: 0.5,
-        filename: `PIP_改善計畫_${window.currentPip.empName}.pdf`,
+        filename: `友士國際會計師事務所_PIP改善計畫_${window.currentPip.empName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
@@ -703,7 +738,6 @@
       location.reload();
     }
 
-    // 載入主管頁面
     async function loadManagerData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
@@ -722,7 +756,6 @@
       document.getElementById("managerPipList").innerHTML = html || "<p class='text-xs text-slate-400'>目前無指派給您的 PIP 專案</p>";
     }
 
-    // 載入員工頁面
     async function loadEmployeeData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
@@ -742,7 +775,6 @@
         <h2 class="text-xl font-bold mb-2">個人 PIP 績效改善計畫</h2>
         <p class="text-xs text-slate-500 mb-4">執行期間：${empPip.startDate} ~ ${empPip.endDate} | 目前狀態：<span class="font-bold text-indigo-600">${empPip.status}</span></p>
 
-        <!-- 4 週填寫切換 -->
         <div class="border p-4 rounded-lg bg-slate-50 space-y-4">
           <h3 class="text-sm font-bold">每週進度回報 (Week 1 ~ 4)</h3>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
