@@ -166,7 +166,7 @@
           <div>
             <div class="flex justify-between items-center mb-3">
               <h3 class="text-base font-bold text-slate-900">一、 核心改善指標與具體執行標準</h3>
-              <button onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-100 font-bold">+ 新增改善指標</button>
+              <button id="btnAddIndBtn" onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-100 font-bold">+ 新增改善指標</button>
             </div>
             <div id="indicatorsContainer" class="space-y-3"></div>
           </div>
@@ -174,7 +174,7 @@
           <div class="border-t pt-6">
             <div class="flex justify-between items-center mb-3">
               <h3 class="text-base font-bold text-slate-900">二、 具體工作任務清單 ( Check List )</h3>
-              <button onclick="addChecklistItem()" class="text-xs bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded hover:bg-emerald-100 font-bold">+ 新增任務項目</button>
+              <button id="btnAddTaskBtn" onclick="addChecklistItem()" class="text-xs bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded hover:bg-emerald-100 font-bold">+ 新增任務項目</button>
             </div>
             <div id="checklistContainer" class="space-y-3"></div>
           </div>
@@ -264,8 +264,8 @@
 
   </div>
 
-  <!-- 導出 PDF 專用之正式報告 HTML 生成區塊 (隱藏) -->
-  <div id="pdfExportArea" class="hidden bg-white p-8 space-y-6 text-slate-900 text-sm"></div>
+  <!-- 導出 PDF 專用之正式報告 HTML 生成區塊 (純極簡 CSS 印刷專用) -->
+  <div id="pdfExportArea" class="hidden bg-white p-8 space-y-6 text-slate-900 text-sm" style="width: 780px; margin: 0 auto; background: #ffffff;"></div>
 
   <!-- 獨立的「👁️ 檢視內容 Modal 視窗」 -->
   <div id="previewModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -638,6 +638,11 @@
       document.getElementById("btnFinalize").classList.toggle("hidden", !isPubOrAdmin);
       document.getElementById("btnDeletePip").classList.toggle("hidden", !isPubOrAdmin);
 
+      // 結案狀態下凍結主管端指標新增
+      const isClosed = p.status === "已結案";
+      document.getElementById("btnAddIndBtn").classList.toggle("hidden", isClosed);
+      document.getElementById("btnAddTaskBtn").classList.toggle("hidden", isClosed);
+
       switchAdminStepTab(1);
       renderIndicators();
       renderChecklist();
@@ -667,8 +672,10 @@
     function renderIndicators() {
       const container = document.getElementById("indicatorsContainer");
       let html = "";
+      const isClosed = window.currentPip.status === "已結案";
+
       (window.currentPip.indicators || []).forEach((ind, idx) => {
-        if (ind.isEditing) {
+        if (ind.isEditing && !isClosed) {
           html += `<div class="bg-white p-4 rounded-lg border-2 border-indigo-200 shadow-sm space-y-3 relative">
             <div class="flex justify-between items-center bg-indigo-50/60 p-2 rounded">
               <input type="text" value="${ind.title}" onchange="updateInd(${idx}, 'title', this.value)" placeholder="指標標題" class="w-full font-bold bg-white p-1.5 border rounded text-slate-800 text-sm">
@@ -704,8 +711,8 @@
             </div>
             <div class="flex space-x-2 flex-shrink-0">
               <button onclick="previewIndContent(${idx})" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 border border-indigo-200 rounded hover:bg-indigo-100 font-bold"><i class="fa-solid fa-eye mr-1"></i>檢視內容</button>
-              <button onclick="toggleIndMode(${idx}, true)" class="text-xs bg-white text-slate-700 px-3 py-1.5 border rounded hover:bg-slate-100 font-bold"><i class="fa-solid fa-pen mr-1"></i>展開編輯</button>
-              <button onclick="deleteIndicator(${idx})" class="text-xs text-rose-500 hover:underline px-1"><i class="fa-solid fa-trash"></i></button>
+              ${!isClosed ? `<button onclick="toggleIndMode(${idx}, true)" class="text-xs bg-white text-slate-700 px-3 py-1.5 border rounded hover:bg-slate-100 font-bold"><i class="fa-solid fa-pen mr-1"></i>展開編輯</button>
+              <button onclick="deleteIndicator(${idx})" class="text-xs text-rose-500 hover:underline px-1"><i class="fa-solid fa-trash"></i></button>` : ''}
             </div>
           </div>`;
         }
@@ -756,8 +763,10 @@
     function renderChecklist() {
       const container = document.getElementById("checklistContainer");
       let html = "";
+      const isClosed = window.currentPip.status === "已結案";
+
       (window.currentPip.checklist || []).forEach((item, idx) => {
-        if (item.isEditing) {
+        if (item.isEditing && !isClosed) {
           html += `<div class="flex items-center space-x-2 bg-white p-2 rounded border-2 border-emerald-200">
             <span class="text-xs font-bold text-slate-400 w-6">${idx + 1}.</span>
             <textarea onchange="updateChecklistItem(${idx}, this.value)" rows="2" placeholder="輸入任務內容..." class="flex-1 p-2 border rounded text-xs bg-slate-50/50">${item.text}</textarea>
@@ -772,8 +781,8 @@
             </div>
             <div class="flex space-x-2">
               <button onclick="previewTaskContent(${idx})" class="text-xs text-indigo-600 hover:underline font-bold"><i class="fa-solid fa-eye mr-1"></i>檢視</button>
-              <button onclick="toggleChecklistMode(${idx}, true)" class="text-xs text-slate-600 hover:underline font-bold"><i class="fa-solid fa-pen mr-1"></i>編輯</button>
-              <button onclick="deleteChecklistItem(${idx})" class="text-xs text-rose-500 hover:underline"><i class="fa-solid fa-trash"></i></button>
+              ${!isClosed ? `<button onclick="toggleChecklistMode(${idx}, true)" class="text-xs text-slate-600 hover:underline font-bold"><i class="fa-solid fa-pen mr-1"></i>編輯</button>
+              <button onclick="deleteChecklistItem(${idx})" class="text-xs text-rose-500 hover:underline"><i class="fa-solid fa-trash"></i></button>` : ''}
             </div>
           </div>`;
         }
@@ -1078,8 +1087,7 @@
       }
     }
 
-    // 核心重構：生成正式 A4 公文報告格式 PDF (移除完成度 % 數)
-    function exportToPdf() {
+    async function exportToPdf() {
       const p = window.currentPip;
       const sigs = p.signatures || {};
       const pubEmail = p.publisherEmail || "";
@@ -1133,7 +1141,7 @@
       sigsPdfHtml += `<div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; text-align: center; border-radius: 6px; background: #fafafa;">
         <div style="font-size: 11px; color: #64748b;">受輔導同仁簽名</div>
         <div style="font-weight: bold; font-size: 12px; margin: 2px 0;">${p.empName}</div>
-        ${empSign ? `<img src="${empSign}" style="height: 45px; margin: 4px auto;">` : '<div style="height:45px;">-</div>'}
+        ${empSign ? `<img src="${empSign}" style="height: 45px; margin: 4px auto; display: block;">` : '<div style="height:45px;">-</div>'}
         <div style="font-size: 9px; color: #94a3b8;">${empTime}</div>
       </div>`;
 
@@ -1145,7 +1153,7 @@
         sigsPdfHtml += `<div style="flex: 1; border: 1px solid #cbd5e1; padding: 8px; text-align: center; border-radius: 6px; background: #fafafa; margin-left: 8px;">
           <div style="font-size: 11px; color: #64748b;">輔導主管簽名</div>
           <div style="font-weight: bold; font-size: 11px; margin: 2px 0; color: #3730a3;">${mgrName}</div>
-          ${mgrSign ? `<img src="${mgrSign}" style="height: 45px; margin: 4px auto;">` : '<div style="height:45px;">-</div>'}
+          ${mgrSign ? `<img src="${mgrSign}" style="height: 45px; margin: 4px auto; display: block;">` : '<div style="height:45px;">-</div>'}
           <div style="font-size: 9px; color: #94a3b8;">${mgrTime}</div>
         </div>`;
       });
@@ -1162,10 +1170,10 @@
 
         <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; border: 1px solid #cbd5e1;">
           <tr style="background: #f1f5f9;">
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">受輔導同仁</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1;">${p.empName} (${p.empEmail})</td>
-            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">執行區間</th>
-            <td style="padding: 6px; border: 1px solid #cbd5e1;">${p.startDate} ~ ${p.endDate}</td>
+            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left; width: 15%;">受輔導同仁</th>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; width: 35%;">${p.empName} (${p.empEmail})</td>
+            <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left; width: 15%;">執行區間</th>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; width: 35%;">${p.startDate} ~ ${p.endDate}</td>
           </tr>
           <tr>
             <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">正式發布主管</th>
@@ -1209,17 +1217,18 @@
       `;
 
       pdfContainer.classList.remove("hidden");
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const opt = {
         margin: 0.4,
         filename: `友士國際會計師事務所_PIP改善計畫期末報告_${p.empName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
       };
 
-      html2pdf().set(opt).from(pdfContainer).save().then(() => {
-        pdfContainer.classList.add("hidden");
-      });
+      await html2pdf().set(opt).from(pdfContainer).save();
+      pdfContainer.classList.add("hidden");
     }
 
     function backToDashboard() {
@@ -1267,7 +1276,6 @@
 
       window.currentPip = empPip;
 
-      // 自動記錄接收日期 (當同仁點擊進入檢視，且先前未記錄過時)
       if (!window.currentPip.empAckDate) {
         autoConfirmEmpAck();
       } else {
@@ -1289,14 +1297,17 @@
 
     function renderEmployeeCard() {
       const empPip = window.currentPip;
+      const isClosed = empPip.status === "已結案";
+
       let driveBtn = empPip.driveUploadUrl 
         ? `<a href="${empPip.driveUploadUrl}" target="_blank" class="inline-block bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded shadow hover:bg-indigo-700 transition"><i class="fa-brands fa-google-drive mr-1"></i>點此開啟 Google Drive 雲端資料夾上傳佐證檔案 ↗</a>`
         : `<span class="text-xs text-slate-400">主管尚未指定雲端上傳資料夾</span>`;
 
+      // 已結案時，任務勾選預設 Read-Only 凍結 (disabled)
       let checklistHtml = "";
       (empPip.checklist || []).forEach((item, idx) => {
-        checklistHtml += `<label class="flex items-start space-x-3 p-2.5 bg-white rounded border hover:bg-slate-50 cursor-pointer">
-          <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleEmpChecklist(${idx}, this.checked)" class="mt-1 h-4 w-4 text-indigo-600 rounded">
+        checklistHtml += `<label class="flex items-start space-x-3 p-2.5 bg-white rounded border ${isClosed ? 'opacity-75 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'}">
+          <input type="checkbox" ${item.done ? 'checked' : ''} ${isClosed ? 'disabled' : ''} onchange="toggleEmpChecklist(${idx}, this.checked)" class="mt-1 h-4 w-4 text-indigo-600 rounded">
           <span class="text-xs text-slate-800 ${item.done ? 'line-through text-slate-400' : ''}">${item.text}</span>
         </label>`;
       });
@@ -1316,26 +1327,11 @@
 
       let ackBlock = `<span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200"><i class="fa-solid fa-circle-check mr-1"></i>已於 ${empPip.empAckDate} 確認接收本 PIP 計畫</span>`;
 
-      let html = `
-        <div class="flex justify-between items-center border-b pb-3">
-          <div>
-            <h2 class="text-xl font-bold">個人 PIP 績效改善計畫</h2>
-            <p class="text-xs text-slate-500 mt-0.5">執行期間：${empPip.startDate} ~ ${empPip.endDate} | 目前狀態：<span class="font-bold text-indigo-600">${empPip.status}</span></p>
-          </div>
-          <div>${ackBlock}</div>
-        </div>
-
-        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
-          <h4 class="text-xs font-bold text-indigo-900 mb-1">📁 佐證資料上傳專區</h4>
-          <p class="text-xs text-slate-600 mb-3">請將當期產出的工作文件上傳至主管提供的 Google Drive 資料夾中，上傳完成後可複製檔案連結填入下方欄位。</p>
-          ${driveBtn}
-        </div>
-
-        <div class="bg-slate-50 border p-4 rounded-lg space-y-2">
-          <h3 class="text-sm font-bold text-slate-800 mb-2">☑ 具體工作任務清單 (請勾選已完成項目)</h3>
-          <div class="space-y-2">${checklistHtml || '<p class="text-xs text-slate-400">目前尚無指定任務項目</p>'}</div>
-        </div>
-
+      // 已結案時，進度回報欄位鎖定，不允許再修改或送出
+      let reportBlock = isClosed ? `
+        <div class="bg-slate-100 p-4 rounded-lg border text-xs text-slate-500 font-semibold text-center">
+          🔒 本 PIP 改善計畫已宣告結案，歷史進度與成果資料已全數凍結存檔。
+        </div>` : `
         <div class="border p-4 rounded-lg bg-slate-50 space-y-4">
           <h3 class="text-sm font-bold">每期進度回報 (第 1 ~ 4 期)</h3>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
@@ -1358,7 +1354,31 @@
             </div>
             <button onclick="submitEmpWeekData()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded text-xs font-semibold shadow">確認送出當期進度 (自動寄信通知主管群)</button>
           </div>
+        </div>`;
+
+      let html = `
+        <div class="flex justify-between items-center border-b pb-3">
+          <div>
+            <h2 class="text-xl font-bold">個人 PIP 績效改善計畫</h2>
+            <p class="text-xs text-slate-500 mt-0.5">執行期間：${empPip.startDate} ~ ${empPip.endDate} | 目前狀態：<span class="font-bold text-indigo-600">${empPip.status}</span></p>
+          </div>
+          <div>${ackBlock}</div>
         </div>
+
+        ${empPip.status === '退回修訂中' ? `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs font-bold flex items-center"><i class="fa-solid fa-triangle-exclamation mr-2 text-amber-600 text-base"></i>主管退回修訂提示：您提交的進度資料主管已提出建議，請重新編輯並下方送出！</div>` : ''}
+
+        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
+          <h4 class="text-xs font-bold text-indigo-900 mb-1">📁 佐證資料上傳專區</h4>
+          <p class="text-xs text-slate-600 mb-3">請將當期產出的工作文件上傳至主管提供的 Google Drive 資料夾中，上傳完成後可複製檔案連結填入下方欄位。</p>
+          ${driveBtn}
+        </div>
+
+        <div class="bg-slate-50 border p-4 rounded-lg space-y-2">
+          <h3 class="text-sm font-bold text-slate-800 mb-2">☑ 具體工作任務清單 (請勾選已完成項目)</h3>
+          <div class="space-y-2">${checklistHtml || '<p class="text-xs text-slate-400">目前尚無指定任務項目</p>'}</div>
+        </div>
+
+        ${reportBlock}
 
         <div class="border p-4 rounded-lg bg-slate-50 space-y-3">
           <h3 class="text-sm font-bold text-slate-800"><i class="fa-solid fa-comments text-indigo-600 mr-1"></i>主管 4 期指導評語與期末結果</h3>
@@ -1377,10 +1397,11 @@
         </div>
       `;
       document.getElementById("empPipCard").innerHTML = html;
-      loadEmpWeekData(1);
+      if (!isClosed) loadEmpWeekData(1);
     }
 
     function toggleEmpChecklist(idx, checked) {
+      if (window.currentPip.status === "已結案") return;
       window.currentPip.checklist[idx].done = checked;
       savePipDataToDb();
     }
@@ -1388,11 +1409,17 @@
     function loadEmpWeekData(w) {
       window.activeWeek = w;
       const wData = (window.currentPip.weeklyReviews || {})[w] || {};
-      document.getElementById("empDriveInput").value = wData.driveLink || "";
-      document.getElementById("empNotesInput").value = wData.notes || "";
+      const driveEl = document.getElementById("empDriveInput");
+      const notesEl = document.getElementById("empNotesInput");
+      if (driveEl) driveEl.value = wData.driveLink || "";
+      if (notesEl) notesEl.value = wData.notes || "";
     }
 
     async function submitEmpWeekData() {
+      if (window.currentPip.status === "已結案") {
+        alert("專案已正式結案，無法再變更資料！");
+        return;
+      }
       const w = window.activeWeek;
 
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
