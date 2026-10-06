@@ -219,7 +219,7 @@
           </div>
         </div>
 
-        <!-- 步驟三 (簽名區域明確放在步驟三之內，無隱藏遮蔽) -->
+        <!-- 步驟三 -->
         <div id="stepSection3" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
@@ -242,7 +242,7 @@
           <div class="border-t pt-6">
             <h3 class="text-base font-bold text-slate-900 mb-2"><i class="fa-solid fa-file-signature text-indigo-600 mr-2"></i>五、 主管與同仁會簽手寫簽名區</h3>
             <p class="text-xs text-slate-500 mb-4 print-hide">發布主管與指派參與的主管登入後均可點擊「點此確認簽核」進行手寫簽名。全體簽名完成後方可執行結案。</p>
-            <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+            <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 min-h-[120px] p-2 bg-slate-50/50 rounded-lg"></div>
           </div>
         </div>
 
@@ -254,7 +254,7 @@
         <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布任務 (發給同仁)</button>
         <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (通知同仁)</button>
         <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (通知同仁簽回)</button>
-        <button id="btnDeletePip" onclick="deleteCurrentPip()" class="bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
+        <button id="btnDeletePip" onclick="deleteCurrentPip()" class="hidden bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
         <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF (雙方簽完解鎖)</button>
       </div>
     </div>
@@ -614,6 +614,7 @@
       refreshPipUI();
     }
 
+    // 關鍵修復：刷新面板與控制「已結案」下的按鈕隱藏/防呆
     function refreshPipUI() {
       const p = window.currentPip;
 
@@ -632,12 +633,26 @@
       document.getElementById("editorEmpAckDate").innerText = p.empAckDate || "尚未確認接收";
       document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
 
-      const isPubOrAdmin = window.currentUser.email === p.publisherEmail || window.currentUser.role === "super_admin";
-      document.getElementById("btnPublish").classList.toggle("hidden", !isPubOrAdmin);
-      document.getElementById("btnFinalize").classList.toggle("hidden", !isPubOrAdmin);
-      document.getElementById("btnDeletePip").classList.toggle("hidden", !isPubOrAdmin);
-
       const isClosed = p.status === "已結案";
+      const isPublisher = window.currentUser.email === p.publisherEmail;
+      const isSuperAdmin = window.currentUser.role === "super_admin";
+
+      // 1. 已結案時，隱藏純儲存、正式發布、退回修訂、完成結案按鈕
+      document.getElementById("btnSaveDraft").classList.toggle("hidden", isClosed);
+      document.getElementById("btnReturnRevise").classList.toggle("hidden", isClosed);
+
+      if (isClosed) {
+        document.getElementById("btnPublish").classList.add("hidden");
+        document.getElementById("btnFinalize").classList.add("hidden");
+      } else {
+        document.getElementById("btnPublish").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
+        document.getElementById("btnFinalize").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
+      }
+
+      // 2. 刪除專案按鈕防呆：僅「發布主管」或「最高管理者」可以看到
+      document.getElementById("btnDeletePip").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
+
+      // 3. 凍結指標與任務新增按鈕
       document.getElementById("btnAddIndBtn").classList.toggle("hidden", isClosed);
       document.getElementById("btnAddTaskBtn").classList.toggle("hidden", isClosed);
 
@@ -645,7 +660,7 @@
       renderIndicators();
       renderChecklist();
       switchWeekTab(1);
-      renderSignatures();
+      renderSignatures(); // 強制繪製簽名
       checkFinalizeLockStatus();
     }
 
@@ -661,6 +676,7 @@
           sec.classList.add("hidden");
         }
       }
+      renderSignatures();
     }
 
     function updateDriveUploadUrl(val) {
@@ -843,41 +859,49 @@
       }
     }
 
-    // 主管與同仁簽名區域渲染 (呈現真實姓名，具備點擊簽名與完成呈現)
+    // 關鍵強效繪製簽名卡片 (徹底避免容器為空)
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
+      if (!grid) return;
+
+      const p = window.currentPip;
+      if (!p) return;
+
       let html = "";
+      const sigs = p.signatures || {};
+
+      // 1. 同仁簽名卡片
+      const empSign = sigs['emp'];
+      const empSignTime = sigs['emp_time'] || '';
+      const isCurrentEmp = window.currentUser.email === p.empEmail;
       
-      const empSign = (window.currentPip.signatures || {})['emp'];
-      const empSignTime = (window.currentPip.signatures || {})['emp_time'] || '';
-      const isCurrentEmp = window.currentUser.email === window.currentPip.empEmail;
-      
-      html += `<div class="border p-3 rounded-lg text-center bg-slate-50 shadow-sm">
-        <span class="text-xs text-slate-500 block mb-1">受輔導同仁</span>
-        <span class="text-[11px] text-indigo-600 font-bold block mb-2">${window.currentPip.empName}</span>
+      html += `<div class="border p-3 rounded-lg text-center bg-white shadow-sm border-slate-200">
+        <span class="text-xs text-slate-500 block mb-1 font-semibold">受輔導同仁</span>
+        <span class="text-[11px] text-indigo-600 font-bold block mb-2">${p.empName || '受輔導同仁'}</span>
         ${empSign 
-          ? `<img src="${empSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已簽名簽回</span><span class="text-[9px] text-slate-400 block">${empSignTime}</span>` 
+          ? `<img src="${empSign}" class="h-12 mx-auto mb-1 object-contain"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已簽名簽回</span><span class="text-[9px] text-slate-400 block">${empSignTime}</span>` 
           : (isCurrentEmp 
               ? `<button onclick="openSignModal('emp')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow print-hide">點此簽名</button>` 
               : `<span class="text-xs text-amber-600 block my-2 font-semibold">待同仁簽回</span>`)}
       </div>`;
 
-      const pubEmail = window.currentPip.publisherEmail;
-      const assignedMgrs = window.currentPip.assignedManagers || [];
+      // 2. 輔導主管群簽名卡片
+      const pubEmail = p.publisherEmail;
+      const assignedMgrs = p.assignedManagers || [];
       const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
 
       allMgrs.forEach(mgrEmail => {
-        const mgrSign = (window.currentPip.signatures || {})[mgrEmail];
-        const mgrSignTime = (window.currentPip.signatures || {})[mgrEmail + '_time'] || '';
+        const mgrSign = sigs[mgrEmail];
+        const mgrSignTime = sigs[mgrEmail + '_time'] || '';
         const isCurrentMgr = window.currentUser.email === mgrEmail || window.currentUser.role === 'super_admin';
         const mgrName = window.allUsersMap[mgrEmail] || mgrEmail;
         const isPublisher = mgrEmail === pubEmail;
         
-        html += `<div class="border p-3 rounded-lg text-center bg-slate-50 shadow-sm">
-          <span class="text-xs text-slate-500 block mb-1">${isPublisher ? '★ 正式發布主管' : '輔導主管'}</span>
+        html += `<div class="border p-3 rounded-lg text-center bg-white shadow-sm border-slate-200">
+          <span class="text-xs text-slate-500 block mb-1 font-semibold">${isPublisher ? '★ 正式發布主管' : '輔導主管'}</span>
           <span class="text-[11px] text-indigo-600 font-bold block mb-2">${mgrName}</span>
           ${mgrSign 
-            ? `<img src="${mgrSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已確認簽核</span><span class="text-[9px] text-slate-400 block">${mgrSignTime}</span>` 
+            ? `<img src="${mgrSign}" class="h-12 mx-auto mb-1 object-contain"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已確認簽核</span><span class="text-[9px] text-slate-400 block">${mgrSignTime}</span>` 
             : (isCurrentMgr 
                 ? `<button onclick="openSignModal('${mgrEmail}')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow print-hide">點此確認簽核</button>` 
                 : `<span class="text-xs text-slate-400 block my-2">待主管簽核</span>`)}
@@ -1087,7 +1111,7 @@
       }
     }
 
-    // 直接將螢幕目前完全繪製好的 DOM 畫面進行擷取，導出 100% 帶手寫簽名與時間的 PDF
+    // PDF 截圖導出 (確保三個步驟區塊通通展開後再擷取)
     async function exportToPdf() {
       const p = window.currentPip;
       const sigs = p.signatures || {};
@@ -1110,7 +1134,6 @@
         return;
       }
 
-      // 展開所有步驟分頁供完整擷取畫面
       const sec1 = document.getElementById("stepSection1");
       const sec2 = document.getElementById("stepSection2");
       const sec3 = document.getElementById("stepSection3");
@@ -1118,10 +1141,9 @@
       if (sec2) sec2.classList.remove("hidden");
       if (sec3) sec3.classList.remove("hidden");
 
-      // 隱藏不需印出的按鈕與頁籤
       document.querySelectorAll(".print-hide").forEach(el => el.classList.add("hidden"));
 
-      await new Promise(resolve => setTimeout(resolve, 300)); // 等待 DOM 完全繪製
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const opt = {
         margin: 0.3,
@@ -1133,7 +1155,6 @@
 
       await html2pdf().set(opt).from(targetElement).save();
 
-      // 匯出後還原頁面原始分頁狀態
       switchAdminStepTab(3);
       document.querySelectorAll(".print-hide").forEach(el => el.classList.remove("hidden"));
     }
