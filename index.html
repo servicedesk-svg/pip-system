@@ -87,7 +87,7 @@
               <select id="pipTargetEmployee" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者 (唯一具備發布與結案權限)</label>
+              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者 (發布與結案主責主管)</label>
               <select id="pipPublisher" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
@@ -149,6 +149,10 @@
             <div><span class="text-slate-500 text-xs block">執行區間</span><span id="editorDates" class="font-bold text-xs"></span></div>
             <div><span class="text-slate-500 text-xs block">★ 正式發布主管</span><span id="editorPublisher" class="font-bold text-indigo-600 text-xs"></span></div>
             <div><span class="text-slate-500 text-xs block">參與輔導主管群</span><span id="editorManagers" class="font-bold text-xs"></span></div>
+          </div>
+          <div class="border-t pt-2 flex justify-between text-xs text-slate-600">
+            <span>專案當前狀態：<b id="editorStatus" class="text-indigo-600 font-bold">草稿</b></span>
+            <span>員工確認接收日期：<b id="editorEmpAckDate" class="text-slate-800">尚未確認</b></span>
           </div>
         </div>
 
@@ -236,20 +240,21 @@
           </div>
 
           <div class="border-t pt-6">
-            <h3 class="text-base font-bold text-slate-900 mb-2">五、 主管與員工會簽確認狀態 (包含正式發布主管)</h3>
+            <h3 class="text-base font-bold text-slate-900 mb-2">五、 主管與員工會簽確認狀態 (全體確認後方可結案)</h3>
             <p class="text-xs text-slate-500 mb-4">發布主管與指派參與的主管登入後均需點擊「確認簽核」。全體簽名完成後，發布主管方可解鎖執行結案。</p>
             <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
           </div>
         </div>
       </div>
 
+      <!-- 操作按鈕區 -->
       <div class="flex flex-wrap gap-3 justify-end bg-white p-4 rounded-xl shadow border">
         <button id="btnSaveDraft" onclick="saveDraftOnly()" class="bg-slate-600 text-white px-4 py-2 rounded text-sm hover:bg-slate-700"><i class="fa-solid fa-floppy-disk mr-1"></i>純儲存變更 (不發信)</button>
-        <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布 PIP (寄信通知)</button>
-        <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (寄信通知員工)</button>
-        <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (全體主管簽核解鎖)</button>
+        <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布任務 (發給員工)</button>
+        <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (通知員工)</button>
+        <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (全體簽核解鎖)</button>
         <button id="btnDeletePip" onclick="deleteCurrentPip()" class="bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
-        <button onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF</button>
+        <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF (結案後解鎖)</button>
       </div>
     </div>
 
@@ -258,6 +263,20 @@
       <div id="empPipCard" class="bg-white rounded-xl shadow p-6 border border-slate-200 space-y-6"></div>
     </div>
 
+  </div>
+
+  <!-- 獨立的「👁️ 檢視內容 Modal 視窗」 -->
+  <div id="previewModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl border">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 id="previewModalTitle" class="text-base font-bold text-slate-900"><i class="fa-solid fa-eye text-indigo-600 mr-2"></i>檢視內容</h3>
+        <button onclick="closePreviewModal()" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+      </div>
+      <div id="previewModalBody" class="text-xs text-slate-700 space-y-3 leading-relaxed"></div>
+      <div class="flex justify-end pt-3 border-t">
+        <button onclick="closePreviewModal()" class="px-5 py-1.5 bg-slate-800 text-white rounded text-xs font-semibold">關閉預覽</button>
+      </div>
+    </div>
   </div>
 
   <!-- 首登修改密碼 Modal -->
@@ -559,12 +578,13 @@
         startDate,
         endDate,
         status: "草稿",
+        empAckDate: "",
         driveUploadUrl: "",
         indicators: [
-          { title: "改善指標一", objective: "", expectation: "", kpi: "", support: "", isEditing: true }
+          { title: "改善指標一", objective: "", expectation: "", kpi: "", support: "", isEditing: false }
         ],
         checklist: [
-          { id: 1, text: "完成第一個指定任務項目", done: false, isEditing: true }
+          { id: 1, text: "完成第一個指定任務項目", done: false, isEditing: false }
         ],
         weeklyReviews: { 1: {}, 2: {}, 3: {}, 4: {} },
         signatures: {},
@@ -593,13 +613,19 @@
       document.getElementById("editorPublisher").innerText = p.publisherEmail;
       document.getElementById("editorManagers").innerText = p.assignedManagers.join(", ");
       document.getElementById("editorStatus").innerText = p.status;
+      document.getElementById("editorEmpAckDate").innerText = p.empAckDate || "尚未確認接收";
       document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
 
-      // 只有發布主管或維護者才能看見「正式發布」與「完成結案」按鈕
       const isPubOrAdmin = window.currentUser.email === p.publisherEmail || window.currentUser.role === "super_admin";
       document.getElementById("btnPublish").classList.toggle("hidden", !isPubOrAdmin);
       document.getElementById("btnFinalize").classList.toggle("hidden", !isPubOrAdmin);
       document.getElementById("btnDeletePip").classList.toggle("hidden", !isPubOrAdmin);
+
+      // 解鎖/解禁 PDF 下載按鈕 (只有已結案才解鎖)
+      const pdfBtn = document.getElementById("btnPdfDownload");
+      if (pdfBtn) {
+        pdfBtn.disabled = p.status !== "已結案";
+      }
 
       switchAdminStepTab(1);
       renderIndicators();
@@ -627,6 +653,7 @@
       if (window.currentPip) window.currentPip.driveUploadUrl = val;
     }
 
+    // 指標清單渲染 (包含【👁️ 檢視內容】與【✏️ 展開編輯】)
     function renderIndicators() {
       const container = document.getElementById("indicatorsContainer");
       let html = "";
@@ -666,13 +693,31 @@
               <p class="text-xs text-slate-500 line-clamp-1">${ind.objective || '尚未填寫目標說明'}</p>
             </div>
             <div class="flex space-x-2 flex-shrink-0">
-              <button onclick="toggleIndMode(${idx}, true)" class="text-xs bg-white text-indigo-600 px-3 py-1.5 border rounded hover:bg-indigo-50 font-bold"><i class="fa-solid fa-pen mr-1"></i>展開編輯</button>
+              <button onclick="previewIndContent(${idx})" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 border border-indigo-200 rounded hover:bg-indigo-100 font-bold"><i class="fa-solid fa-eye mr-1"></i>檢視內容</button>
+              <button onclick="toggleIndMode(${idx}, true)" class="text-xs bg-white text-slate-700 px-3 py-1.5 border rounded hover:bg-slate-100 font-bold"><i class="fa-solid fa-pen mr-1"></i>展開編輯</button>
               <button onclick="deleteIndicator(${idx})" class="text-xs text-rose-500 hover:underline px-1"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>`;
         }
       });
       container.innerHTML = html || "<p class='text-xs text-slate-400'>目前無指標，請點擊上方按鈕新增。</p>";
+    }
+
+    function previewIndContent(idx) {
+      const ind = window.currentPip.indicators[idx];
+      document.getElementById("previewModalTitle").innerText = ind.title || "改善指標詳情";
+      document.getElementById("previewModalBody").innerHTML = `
+        <div class="space-y-3">
+          <div><b class="text-slate-900 block mb-1">【改善目標 Objective】</b><p class="bg-slate-50 p-2.5 rounded border">${ind.objective || '無'}</p></div>
+          <div><b class="text-slate-900 block mb-1">【具體行為要求 Expectations】</b><p class="bg-slate-50 p-2.5 rounded border whitespace-pre-line">${ind.expectation || '無'}</p></div>
+          <div><b class="text-slate-900 block mb-1">【衡量與達標標準 Metrics】</b><p class="bg-slate-50 p-2.5 rounded border">${ind.kpi || '無'}</p></div>
+          <div><b class="text-slate-900 block mb-1">【輔導與支援資源 Support】</b><p class="bg-slate-50 p-2.5 rounded border">${ind.support || '無'}</p></div>
+        </div>`;
+      document.getElementById("previewModal").classList.remove("hidden");
+    }
+
+    function closePreviewModal() {
+      document.getElementById("previewModal").classList.add("hidden");
     }
 
     function toggleIndMode(idx, isEditing) {
@@ -716,13 +761,25 @@
               <span class="text-xs text-slate-800 font-medium">${item.text || '未命名任務'}</span>
             </div>
             <div class="flex space-x-2">
-              <button onclick="toggleChecklistMode(${idx}, true)" class="text-xs text-indigo-600 hover:underline font-bold"><i class="fa-solid fa-pen mr-1"></i>編輯</button>
+              <button onclick="previewTaskContent(${idx})" class="text-xs text-indigo-600 hover:underline font-bold"><i class="fa-solid fa-eye mr-1"></i>檢視</button>
+              <button onclick="toggleChecklistMode(${idx}, true)" class="text-xs text-slate-600 hover:underline font-bold"><i class="fa-solid fa-pen mr-1"></i>編輯</button>
               <button onclick="deleteChecklistItem(${idx})" class="text-xs text-rose-500 hover:underline"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>`;
         }
       });
       container.innerHTML = html || "<p class='text-xs text-slate-400'>目前無任務項目，請點擊上方按鈕新增。</p>";
+    }
+
+    function previewTaskContent(idx) {
+      const task = window.currentPip.checklist[idx];
+      document.getElementById("previewModalTitle").innerText = `任務項目 ${idx + 1} 詳情`;
+      document.getElementById("previewModalBody").innerHTML = `
+        <div class="space-y-2">
+          <b class="text-slate-900 block">【任務描述與具體交付要求】</b>
+          <p class="bg-slate-50 p-3 rounded border whitespace-pre-line">${task.text || '無內容'}</p>
+        </div>`;
+      document.getElementById("previewModal").classList.remove("hidden");
     }
 
     function toggleChecklistMode(idx, isEditing) {
@@ -769,7 +826,7 @@
       }
     }
 
-    // 完整的「員工 + 發布主管 + 參與主管群」會簽狀態
+    // 簽名區塊：受輔導員工 + ★ 正式發布主管 + 指派輔導主管群
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       let html = "";
@@ -787,7 +844,7 @@
               : `<span class="text-xs text-amber-600 block my-2">待員工簽名</span>`)}
       </div>`;
 
-      // 2. 彙整所有主管 (發布主管 + 指派參與主管群)
+      // 2. 正式發布主管 + 指派主管群
       const pubEmail = window.currentPip.publisherEmail;
       const assignedMgrs = window.currentPip.assignedManagers || [];
       const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
@@ -818,7 +875,7 @@
       const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
       const sigs = window.currentPip.signatures || {};
       
-      const allSigned = allMgrs.length > 0 && allMgrs.every(m => sigs[m]);
+      const allSigned = allMgrs.length > 0 && allMgrs.every(m => sigs[m]) && sigs['emp'];
 
       const btn = document.getElementById("btnFinalize");
       if (btn) {
@@ -888,7 +945,7 @@
       if (confirm("確定要正式發布此 PIP 給員工嗎？系統將發送 Email 通知員工。")) {
         window.currentPip.status = "進行中";
         await savePipDataToDb();
-        triggerEmailNotification("進行中 (已發布)");
+        triggerEmailNotification("進行中 (已正式發布)");
         alert("PIP 已成功發布並完成寄信通知！");
       }
     }
@@ -903,11 +960,12 @@
     }
 
     async function finalizePipProject() {
-      if (confirm("所有主管均已確認簽核，確定要完成此 PIP 結案嗎？系統將發送結案通知。")) {
+      if (confirm("所有主管及員工均已確認簽核，確定要完成此 PIP 結案嗎？系統將發送結案通知。")) {
         window.currentPip.status = "已結案";
         await savePipDataToDb();
         triggerEmailNotification("已結案");
         alert("專案已正式完成結案並發送通知！");
+        location.reload();
       }
     }
 
@@ -944,6 +1002,10 @@
     }
 
     function exportToPdf() {
+      if (window.currentPip.status !== "已結案") {
+        alert("專案尚未完結結案，無法導出正式 PDF！");
+        return;
+      }
       const element = document.getElementById("pdfExportArea");
       const opt = {
         margin: 0.5,
@@ -977,7 +1039,7 @@
       document.getElementById("managerPipList").innerHTML = html || "<p class='text-xs text-slate-400'>目前無指派給您的 PIP 專案</p>";
     }
 
-    // 員工前台介面 (含完整主管覆核內容檢視與個人簽名按鈕)
+    // 員工端介面 (含正式接收日期與確認承接按鈕)
     async function loadEmployeeData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
@@ -1010,7 +1072,6 @@
         </label>`;
       });
 
-      // 4 期主管指導評语匯整檢視
       let reviewsSummaryHtml = "";
       for (let w = 1; w <= 4; w++) {
         const wData = (empPip.weeklyReviews || {})[w] || {};
@@ -1022,20 +1083,29 @@
         </div>`;
       }
 
-      // 員工個人簽名檔
       const empSign = (empPip.signatures || {})['emp'];
 
-      let html = `
-        <h2 class="text-xl font-bold mb-1">個人 PIP 績效改善計畫</h2>
-        <p class="text-xs text-slate-500 mb-4">執行期間：${empPip.startDate} ~ ${empPip.endDate} | 目前狀態：<span class="font-bold text-indigo-600">${empPip.status}</span></p>
+      // 接收日期確認按鈕區塊
+      let ackBlock = empPip.empAckDate 
+        ? `<span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200"><i class="fa-solid fa-circle-check mr-1"></i>已於 ${empPip.empAckDate} 確認接收本 PIP 計畫</span>`
+        : `<button onclick="confirmEmpAck()" class="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded shadow hover:bg-indigo-700 transition"><i class="fa-solid fa-file-signature mr-1"></i>點此確認接收並承接此 PIP 工作內容</button>`;
 
-        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg mb-6">
+      let html = `
+        <div class="flex justify-between items-center border-b pb-3">
+          <div>
+            <h2 class="text-xl font-bold">個人 PIP 績效改善計畫</h2>
+            <p class="text-xs text-slate-500 mt-0.5">執行期間：${empPip.startDate} ~ ${empPip.endDate} | 目前狀態：<span class="font-bold text-indigo-600">${empPip.status}</span></p>
+          </div>
+          <div>${ackBlock}</div>
+        </div>
+
+        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
           <h4 class="text-xs font-bold text-indigo-900 mb-1">📁 佐證資料上傳專區</h4>
           <p class="text-xs text-slate-600 mb-3">請將當期產出的工作文件上傳至主管提供的 Google Drive 資料夾中，上傳完成後可複製檔案連結填入下方欄位。</p>
           ${driveBtn}
         </div>
 
-        <div class="bg-slate-50 border p-4 rounded-lg mb-6 space-y-2">
+        <div class="bg-slate-50 border p-4 rounded-lg space-y-2">
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-sm font-bold text-slate-800">☑ 具體工作任務清單 (請勾選已完成項目)</h3>
             <span id="empProgressPercent" class="text-xs font-bold text-indigo-600"></span>
@@ -1067,7 +1137,6 @@
           </div>
         </div>
 
-        <!-- 檢視主管覆核意見與期末總評 -->
         <div class="border p-4 rounded-lg bg-slate-50 space-y-3">
           <h3 class="text-sm font-bold text-slate-800"><i class="fa-solid fa-comments text-indigo-600 mr-1"></i>主管 4 期指導評語與期末結果</h3>
           <div class="space-y-2">${reviewsSummaryHtml}</div>
@@ -1077,7 +1146,6 @@
           </div>
         </div>
 
-        <!-- 員工期末手寫簽名區 -->
         <div class="border p-4 rounded-lg bg-slate-50 text-center space-y-2">
           <h4 class="text-xs font-bold text-slate-700">受輔導員工正式簽名</h4>
           ${empSign 
@@ -1088,6 +1156,19 @@
       document.getElementById("empPipCard").innerHTML = html;
       updateEmpProgressPercent();
       loadEmpWeekData(1);
+    }
+
+    async function confirmEmpAck() {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
+      window.currentPip.empAckDate = dateStr;
+      
+      const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
+
+      triggerEmailNotification("員工已確認接收承接 PIP");
+      alert(`已成功確認接收！記錄日期為 ${dateStr}`);
+      renderEmployeeCard();
     }
 
     function toggleEmpChecklist(idx, checked) {
