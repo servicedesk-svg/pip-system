@@ -221,7 +221,7 @@
 
         <!-- 步驟三 -->
         <div id="stepSection3" class="hidden space-y-6">
-          <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與主管群會簽確認</h3>
+          <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與雙方會簽確認</h3>
           
           <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
             <div class="space-y-2 text-sm">
@@ -241,7 +241,7 @@
 
           <div class="border-t pt-6">
             <h3 class="text-base font-bold text-slate-900 mb-2">五、 主管與員工會簽確認狀態 (全體確認後方可結案)</h3>
-            <p class="text-xs text-slate-500 mb-4">發布主管與指派參與的主管登入後均需點擊「確認簽核」。全體簽名完成後，發布主管方可解鎖執行結案。</p>
+            <p class="text-xs text-slate-500 mb-4">發布主管與指派參與的主管登入後均需點擊「確認簽核」。全體簽名完成後，發布主管可點擊【完成結案】，通知同仁登入簽回。</p>
             <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
           </div>
         </div>
@@ -252,9 +252,9 @@
         <button id="btnSaveDraft" onclick="saveDraftOnly()" class="bg-slate-600 text-white px-4 py-2 rounded text-sm hover:bg-slate-700"><i class="fa-solid fa-floppy-disk mr-1"></i>純儲存變更 (不發信)</button>
         <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布任務 (發給同仁)</button>
         <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (通知同仁)</button>
-        <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (全體簽核解鎖)</button>
+        <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (通知同仁簽回)</button>
         <button id="btnDeletePip" onclick="deleteCurrentPip()" class="bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
-        <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF (結案後解鎖)</button>
+        <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF (雙方簽完解鎖)</button>
       </div>
     </div>
 
@@ -602,6 +602,11 @@
 
     async function openPipEditor(pipId) {
       window.currentPip = await getFirestoreDoc("pips", pipId);
+      refreshPipUI();
+    }
+
+    // 刷新 PIP 編輯介面與按鈕狀態 (免重新整理即時刷新)
+    function refreshPipUI() {
       const p = window.currentPip;
 
       document.getElementById("viewSuperAdmin").classList.add("hidden");
@@ -620,11 +625,6 @@
       document.getElementById("btnPublish").classList.toggle("hidden", !isPubOrAdmin);
       document.getElementById("btnFinalize").classList.toggle("hidden", !isPubOrAdmin);
       document.getElementById("btnDeletePip").classList.toggle("hidden", !isPubOrAdmin);
-
-      const pdfBtn = document.getElementById("btnPdfDownload");
-      if (pdfBtn) {
-        pdfBtn.disabled = p.status !== "已結案";
-      }
 
       switchAdminStepTab(1);
       renderIndicators();
@@ -834,10 +834,10 @@
         <span class="text-xs text-slate-500 block mb-1">受輔導同仁</span>
         <span class="text-[10px] text-indigo-600 font-bold block mb-2">${window.currentPip.empName}</span>
         ${empSign 
-          ? `<img src="${empSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已簽名</span>` 
+          ? `<img src="${empSign}" class="h-12 mx-auto mb-1"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已簽名簽回</span>` 
           : (isCurrentEmp 
               ? `<button onclick="openSignModal('emp')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow">點此簽名</button>` 
-              : `<span class="text-xs text-amber-600 block my-2">待同仁簽名</span>`)}
+              : `<span class="text-xs text-amber-600 block my-2">待同仁簽回</span>`)}
       </div>`;
 
       const pubEmail = window.currentPip.publisherEmail;
@@ -870,15 +870,27 @@
       const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
       const sigs = window.currentPip.signatures || {};
       
-      const allSigned = allMgrs.length > 0 && allMgrs.every(m => sigs[m]) && sigs['emp'];
+      const allMgrsSigned = allMgrs.length > 0 && allMgrs.every(m => sigs[m]);
 
-      const btn = document.getElementById("btnFinalize");
-      if (btn) {
-        btn.disabled = !allSigned;
-        if (allSigned) {
-          btn.classList.remove("opacity-50", "cursor-not-allowed");
+      const btnFinalize = document.getElementById("btnFinalize");
+      if (btnFinalize) {
+        btnFinalize.disabled = !allMgrsSigned;
+        if (allMgrsSigned) {
+          btnFinalize.classList.remove("opacity-50", "cursor-not-allowed");
         } else {
-          btn.classList.add("opacity-50", "cursor-not-allowed");
+          btnFinalize.classList.add("opacity-50", "cursor-not-allowed");
+        }
+      }
+
+      const bothSidesSigned = allMgrsSigned && sigs['emp'];
+      const isClosed = window.currentPip.status === "已結案";
+      const btnPdf = document.getElementById("btnPdfDownload");
+      if (btnPdf) {
+        btnPdf.disabled = !(bothSidesSigned && isClosed);
+        if (bothSidesSigned && isClosed) {
+          btnPdf.classList.remove("opacity-50", "cursor-not-allowed");
+        } else {
+          btnPdf.classList.add("opacity-50", "cursor-not-allowed");
         }
       }
     }
@@ -942,6 +954,7 @@
         await savePipDataToDb();
         triggerEmailNotification("pub_to_emp");
         alert("PIP 已成功發布並完成寄信通知同仁！");
+        refreshPipUI(); // 即時動態刷新 UI 狀態
       }
     }
 
@@ -951,20 +964,20 @@
         await savePipDataToDb();
         triggerEmailNotification("return_to_emp");
         alert("已通知同仁退回修訂！");
+        refreshPipUI(); // 即時動態刷新 UI 狀態
       }
     }
 
     async function finalizePipProject() {
-      if (confirm("所有主管及同仁均已確認簽核，確定要完成此 PIP 結案嗎？系統將發送結案通知。")) {
+      if (confirm("全體主管均已確認簽核，確定要完成此 PIP 結案並通知同仁簽回嗎？")) {
         window.currentPip.status = "已結案";
         await savePipDataToDb();
         triggerEmailNotification("final_to_all");
-        alert("專案已正式完成結案並發送通知！");
-        location.reload();
+        alert("專案已正式宣佈結案，並已自動發信通知同仁登入查看結果與進行最終簽回！");
+        refreshPipUI(); // 即時動態刷新 UI 狀態
       }
     }
 
-    // 發送通知信函數 (精準區分「同仁」與「主管」稱謂，尊稱嚴謹)
     async function triggerEmailNotification(actionType) {
       const gasUrl = localStorage.getItem("gasApiUrl");
       if (!gasUrl) return;
@@ -977,7 +990,6 @@
       let targetTo = "", targetCc = "", subject = "", body = "";
 
       if (actionType === "pub_to_emp") {
-        // 發布任務給同仁
         targetTo = p.empEmail;
         targetCc = allMgrsCc;
         subject = `【友士國際會計師事務所】個人 PIP 績效改善計畫正式發布通知`;
@@ -988,7 +1000,6 @@
           <p>如有任何疑問，請隨時與您的輔導主管聯繫。</p>`;
 
       } else if (actionType === "return_to_emp") {
-        // 退回修訂通知同仁
         targetTo = p.empEmail;
         targetCc = allMgrsCc;
         subject = `【友士國際會計師事務所】PIP 績效改善計畫退回修訂通知`;
@@ -998,7 +1009,6 @@
           <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
 
       } else if (actionType === "emp_ack") {
-        // 同仁確認接收，通知主管群
         targetTo = pubEmail;
         targetCc = allMgrsCc;
         subject = `【友士國際會計師事務所】同仁已確認接收 PIP 計畫`;
@@ -1008,7 +1018,6 @@
           <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
 
       } else if (actionType === "emp_update") {
-        // 同仁更新進度，通知主管群
         targetTo = pubEmail;
         targetCc = allMgrsCc;
         subject = `【友士國際會計師事務所】同仁已更新 PIP 當期階段進度`;
@@ -1018,14 +1027,13 @@
           <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
 
       } else if (actionType === "final_to_all") {
-        // 結案通知所有人
         targetTo = p.empEmail;
         targetCc = allMgrsCc;
-        subject = `【友士國際會計師事務所】PIP 績效改善計畫正式結案通知`;
+        subject = `【友士國際會計師事務所】PIP 績效改善計畫期末結案與簽回通知`;
         body = `<p>親愛的 <b>${p.empName} 同仁</b> 及 <b>輔導主管群</b> 您好：</p>
-          <p>同仁 <b>${p.empName}</b> 的 PIP 績效改善計畫已完成全體主管與同仁之會簽確認，正式宣告結案。</p>
-          <p>期末評估結果：<b style="color:#4f46e5;">${p.finalOutcome}</b>。</p>
-          <p>請點擊下方系統連結登入查看最終報告：</p>
+          <p>同仁 <b>${p.empName}</b> 的 PIP 績效改善計畫主管群期末評估已完成。</p>
+          <p>期末評估處置結果為：<b style="color:#4f46e5;">${p.finalOutcome}</b>。</p>
+          <p>請同仁點擊下方系統連結登入查看期末評語報告，並完成最終線上記名手寫簽回：</p>
           <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
       }
 
@@ -1047,10 +1055,18 @@
     }
 
     function exportToPdf() {
-      if (window.currentPip.status !== "已結案") {
-        alert("專案尚未完結結案，無法導出正式 PDF！");
+      const p = window.currentPip;
+      const sigs = p.signatures || {};
+      const pubEmail = p.publisherEmail || "";
+      const assignedMgrs = p.assignedManagers || [];
+      const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
+      const allSigned = allMgrs.every(m => sigs[m]) && sigs['emp'];
+
+      if (p.status !== "已結案" || !allSigned) {
+        alert("專案尚未正式結案，或雙方（主管群與同仁）尚未完成全部簽名簽回，暫無法導出正式 PDF！");
         return;
       }
+
       const element = document.getElementById("pdfExportArea");
       const opt = {
         margin: 0.5,
@@ -1197,10 +1213,10 @@
         </div>
 
         <div class="border p-4 rounded-lg bg-slate-50 text-center space-y-2">
-          <h4 class="text-xs font-bold text-slate-700">受輔導同仁正式簽名</h4>
+          <h4 class="text-xs font-bold text-slate-700">受輔導同仁期末正式簽名簽回</h4>
           ${empSign 
-            ? `<img src="${empSign}" class="h-14 mx-auto"><span class="text-xs text-emerald-600 font-bold block">✓ 您已完成線上簽名</span>` 
-            : `<button onclick="openSignModal('emp')" class="bg-indigo-600 text-white text-xs font-bold px-5 py-2 rounded shadow hover:bg-indigo-700 transition"><i class="fa-solid fa-pen-nib mr-1"></i>點此進行同仁線上手寫簽名</button>`}
+            ? `<img src="${empSign}" class="h-14 mx-auto"><span class="text-xs text-emerald-600 font-bold block">✓ 您已完成線上簽名簽回</span>` 
+            : `<button onclick="openSignModal('emp')" class="bg-indigo-600 text-white text-xs font-bold px-5 py-2 rounded shadow hover:bg-indigo-700 transition"><i class="fa-solid fa-pen-nib mr-1"></i>點此進行同仁期末手寫簽名簽回</button>`}
         </div>
       `;
       document.getElementById("empPipCard").innerHTML = html;
@@ -1256,11 +1272,16 @@
         notes: document.getElementById("empNotesInput").value
       };
 
+      if (window.currentPip.status === "退回修訂中") {
+        window.currentPip.status = "進行中";
+      }
+
       const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
 
       triggerEmailNotification("emp_update");
-      alert(`第 ${w} 期進度已成功送出，並發送 Email 通知主管群！`);
+      alert(`第 ${w} 期進度已成功送出！專案狀態已更新為「進行中」，並已自動發送 Email 通知主管群！`);
+      renderEmployeeCard();
     }
   </script>
 </body>
