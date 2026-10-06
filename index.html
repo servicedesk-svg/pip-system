@@ -87,7 +87,7 @@
               <select id="pipTargetEmployee" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者 (唯一具備發布與結案權限)</label>
+              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者 (發布與結案主責主管)</label>
               <select id="pipPublisher" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
             </div>
             <div>
@@ -964,6 +964,7 @@
       }
     }
 
+    // 發送通知信函數 (採用文字模式發送，避免被跨網域 CORS 阻擋)
     async function triggerEmailNotification(status) {
       const gasUrl = localStorage.getItem("gasApiUrl");
       if (!gasUrl) return;
@@ -983,7 +984,7 @@
         await fetch(gasUrl, {
           method: "POST",
           mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({
             to: p.empEmail,
             cc: allMgrsCc,
@@ -1034,14 +1035,12 @@
       document.getElementById("managerPipList").innerHTML = html || "<p class='text-xs text-slate-400'>目前無指派給您的 PIP 專案</p>";
     }
 
-    // 員工端介面 (嚴格檢查草稿狀態不顯示；正式發布後方可預覽與確認接收)
     async function loadEmployeeData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
       let empPip = null;
       pipsSnap.forEach(d => {
         const p = d.data();
-        // 只有狀態「不是草稿」的專案才會展示給員工！
         if (p.empEmail === window.currentUser.email && p.status !== "草稿") {
           empPip = p;
         }
