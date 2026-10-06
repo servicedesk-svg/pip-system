@@ -65,7 +65,7 @@
 
       <!-- 帳號管理 -->
       <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
-        <h3 class="text-lg font-bold text-slate-900 mb-4"><i class="fa-solid fa-users-gear text-indigo-600 mr-2"></i>建立與維護帳號 (包含查看密碼/重置)</h3>
+        <h3 class="text-lg font-bold text-slate-900 mb-4"><i class="fa-solid fa-users-gear text-indigo-600 mr-2"></i>建立與維護帳號 (重置密碼 / 刪除帳號)</h3>
         <form onsubmit="createUser(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <input type="email" id="newUserEmail" placeholder="使用者 Email" required class="px-3 py-2 border rounded-lg text-sm">
           <input type="text" id="newUserName" placeholder="姓名 / 職稱" required class="px-3 py-2 border rounded-lg text-sm">
@@ -108,8 +108,7 @@
             <div id="pipManagersCheckbox" class="flex flex-wrap gap-3 bg-slate-50 p-3 rounded-lg border text-sm"></div>
           </div>
 
-          <div class="flex justify-between items-center pt-2">
-            <button type="button" onclick="loadDefaultSmartTemplate()" class="text-xs text-indigo-600 hover:underline"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>帶入合規範本 (含四大 SMART 指標)</button>
+          <div class="flex justify-end pt-2">
             <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg text-sm font-semibold">建立草稿並前往編輯</button>
           </div>
         </form>
@@ -152,11 +151,11 @@
           <div><span class="text-slate-500 text-xs block">發布狀態</span><span id="editorStatus" class="font-bold text-xs"></span></div>
         </div>
 
-        <!-- 四大核心 SMART 指標區 -->
+        <!-- 改善指標區 -->
         <div>
           <div class="flex justify-between items-center mb-3">
-            <h3 class="text-base font-bold text-slate-900">二、 核心改善指標與具體執行標準 (SMART)</h3>
-            <button id="btnAddIndicator" onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">+ 新增指標</button>
+            <h3 class="text-base font-bold text-slate-900">二、 核心改善指標與具體執行標準</h3>
+            <button id="btnAddIndicator" onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100 font-bold">+ 新增指標欄位</button>
           </div>
           <div id="indicatorsContainer" class="space-y-4"></div>
         </div>
@@ -236,6 +235,7 @@
         <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布 PIP</button>
         <button id="btnReturnRevise" onclick="savePipData('退回修訂')" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700">退回修訂</button>
         <button id="btnFinalize" onclick="savePipData('已結案')" class="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-emerald-700">完成結案</button>
+        <button id="btnDeletePip" onclick="deleteCurrentPip()" class="bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除此 PIP 專案</button>
         <button onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF</button>
       </div>
     </div>
@@ -277,7 +277,7 @@
   <!-- Firebase & App Script logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAnikohFy1Ee6T4Yb0iuqdxqTwVZ-juzdM",
@@ -298,7 +298,6 @@
     window.signaturePad = null;
     window.targetSignRole = null;
 
-    // 初始化 4 組指定預設帳號
     async function initSystemData() {
       const initUsers = [
         { email: "service.desk@youth-cpa.com.tw", name: "系統維護者", role: "super_admin", password: "admin", isDefault: false },
@@ -417,7 +416,10 @@
           <td class="p-2">${u.name}</td>
           <td class="p-2">${u.role}</td>
           <td class="p-2 font-mono text-indigo-600 font-bold">${u.password}</td>
-          <td class="p-2"><button onclick="adminResetPwd('${u.email}')" class="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-200">重置密碼</button></td>
+          <td class="p-2 space-x-1">
+            <button onclick="adminResetPwd('${u.email}')" class="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-200 hover:bg-amber-100">重置密碼</button>
+            <button onclick="deleteUser('${u.email}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded border border-rose-200 hover:bg-rose-100">刪除帳號</button>
+          </td>
         </tr>`;
         if (u.role === "employee") empOptions += `<option value="${u.email}">${u.name} (${u.email})</option>`;
         if (u.role === "manager" || u.role === "super_admin") {
@@ -444,6 +446,15 @@
       }
     }
 
+    async function deleteUser(email) {
+      if (confirm(`確定要刪除帳號 ${email} 嗎？此動作無法復原。`)) {
+        const { doc, deleteDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await deleteDoc(doc(getFirestore(), "users", email));
+        alert("帳號已成功刪除！");
+        loadSuperAdminData();
+      }
+    }
+
     async function loadMasterPipList() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
@@ -455,10 +466,31 @@
             <span class="font-bold text-indigo-600">${p.empName}</span>
             <span class="text-xs text-slate-400 ml-2">發布狀態：${p.status}</span>
           </div>
-          <button onclick="openPipEditor('${p.id}')" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded">編輯/檢視</button>
+          <div class="space-x-2">
+            <button onclick="openPipEditor('${p.id}')" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700">編輯/檢視</button>
+            <button onclick="deletePipProject('${p.id}', '${p.empName}')" class="text-xs bg-rose-50 text-rose-600 px-3 py-1.5 rounded border border-rose-200 hover:bg-rose-100">刪除專案</button>
+          </div>
         </div>`;
       });
       document.getElementById("pipMasterList").innerHTML = html || "<p class='text-xs text-slate-400'>尚無 PIP 專案</p>";
+    }
+
+    async function deletePipProject(pipId, empName) {
+      if (confirm(`確定要刪除員工 [${empName}] 的此份 PIP 專案嗎？此動作無法復原。`)) {
+        const { doc, deleteDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await deleteDoc(doc(getFirestore(), "pips", pipId));
+        alert("PIP 專案已成功刪除！");
+        loadMasterPipList();
+      }
+    }
+
+    async function deleteCurrentPip() {
+      if (window.currentPip && confirm(`確定要刪除目前的 PIP 專案嗎？`)) {
+        const { doc, deleteDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await deleteDoc(doc(getFirestore(), "pips", window.currentPip.id));
+        alert("專案已成功刪除！即將返回主頁。");
+        backToDashboard();
+      }
     }
 
     async function createUser(e) {
@@ -472,40 +504,6 @@
       await setDoc(doc(getFirestore(), "users", email), { email, name, password: pwd, role, isDefault: true });
       alert("帳號建立成功！(已設為首登需變更密碼)");
       loadSuperAdminData();
-    }
-
-    function loadDefaultSmartTemplate() {
-      window.tempIndicators = [
-        {
-          title: "指標一：工作品質與自主覆核（品質落實）",
-          objective: "建立嚴格之自我覆核機制，確保所有交付案件內容精確，無因個人粗心錯誤導致資料遺漏。",
-          expectation: "1. 落實 Check List 清單。\n2. 交付資料完整性 (如：BS, PL, TB, 401申報書等)。\n3. 客戶資料完整核對。",
-          kpi: "粗心錯誤率每評估期僅可有 1 個；交付完整率 100%。",
-          support: "提供自我檢查規範；指定資深同仁答疑輔導。"
-        },
-        {
-          title: "指標二：職場溝通與問題彙整（溝通效率）",
-          objective: "遵守團隊協作規範，採取集中化、高效率且具職場禮儀之溝通方式。",
-          expectation: "1. 問題集中處理原則 (累積半天一次發 Email)。\n2. 電郵與通訊禮儀。\n3. 尊重他人工作步調 (給予 2-4 小時回覆時間)。",
-          kpi: "零散打斷紀錄 0 次；郵件合規率 100%。",
-          support: "提供 Email 撰寫討論及協助。"
-        },
-        {
-          title: "指標三：自主學習與 SOP 建立（主動性）",
-          objective: "發揮主動學習精神，熟練內部系統操作，並建立個人作業 SOP 筆記。",
-          expectation: "1. 自主研讀內部 SOP 與大補帖。\n2. 建立天心系統與扣繳個人工作筆記。\n3. 精確提問法。",
-          kpi: "每週檢核前繳交個人作業 SOP 筆記。",
-          support: "開放事務所系統知識庫文檔權限。"
-        },
-        {
-          title: "指標四：出勤管理與行政規範遵循（行政合規）",
-          objective: "嚴格遵守差勤規定與預告要求，展現基本職場紀律。",
-          expectation: "1. 請假程序合規。\n2. 公共行事曆標註。\n3. 配合事務所通告與問卷。",
-          kpi: "請假與差勤合規率 100%；通告配合同步率 100%。",
-          support: "HR 提供系統請假指引。"
-        }
-      ];
-      alert("已預載四大合規 SMART 指標範本！");
     }
 
     async function createPipProject(e) {
@@ -530,7 +528,9 @@
         startDate,
         endDate,
         status: "草稿",
-        indicators: window.tempIndicators || [],
+        indicators: [
+          { title: "改善指標一", objective: "", expectation: "", kpi: "", support: "" }
+        ],
         weeklyReviews: { 1: {}, 2: {}, 3: {}, 4: {} },
         signatures: {},
         finalOutcome: "",
@@ -560,8 +560,10 @@
 
       if (window.currentUser.email === p.publisherEmail || window.currentUser.role === "super_admin") {
         document.getElementById("btnPublish").classList.remove("hidden");
+        document.getElementById("btnDeletePip").classList.remove("hidden");
       } else {
         document.getElementById("btnPublish").classList.add("hidden");
+        document.getElementById("btnDeletePip").classList.add("hidden");
       }
 
       renderIndicators();
@@ -573,17 +575,20 @@
       const container = document.getElementById("indicatorsContainer");
       let html = "";
       (window.currentPip.indicators || []).forEach((ind, idx) => {
-        html += `<div class="bg-slate-50 p-4 rounded-lg border text-sm space-y-2">
-          <input type="text" value="${ind.title}" onchange="updateInd(${idx}, 'title', this.value)" class="w-full font-bold bg-white p-1 border rounded">
+        html += `<div class="bg-slate-50 p-4 rounded-lg border text-sm space-y-2 relative">
+          <div class="flex justify-between items-center">
+            <input type="text" value="${ind.title}" onchange="updateInd(${idx}, 'title', this.value)" placeholder="指標標題 (例如：指標一：工作品質與自主覆核)" class="w-full font-bold bg-white p-1 border rounded text-slate-800">
+            <button onclick="deleteIndicator(${idx})" class="ml-2 text-xs text-rose-600 hover:underline flex-shrink-0"><i class="fa-solid fa-trash mr-1"></i>刪除此指標</button>
+          </div>
           <textarea onchange="updateInd(${idx}, 'objective', this.value)" placeholder="改善目標 (Objective)" class="w-full p-1 border rounded text-xs" rows="1">${ind.objective}</textarea>
-          <textarea onchange="updateInd(${idx}, 'expectation', this.value)" placeholder="具體行為要求" class="w-full p-1 border rounded text-xs" rows="2">${ind.expectation}</textarea>
-          <div class="grid grid-cols-2 gap-2">
-            <input type="text" value="${ind.kpi}" onchange="updateInd(${idx}, 'kpi', this.value)" placeholder="衡量與達標標準" class="p-1 border rounded text-xs">
-            <input type="text" value="${ind.support}" onchange="updateInd(${idx}, 'support', this.value)" placeholder="公司/主管支援資源" class="p-1 border rounded text-xs">
+          <textarea onchange="updateInd(${idx}, 'expectation', this.value)" placeholder="具體行為要求 (Actionable Expectations)" class="w-full p-1 border rounded text-xs" rows="2">${ind.expectation}</textarea>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <input type="text" value="${ind.kpi}" onchange="updateInd(${idx}, 'kpi', this.value)" placeholder="衡量與達標標準 (Key Performance Metrics)" class="p-1 border rounded text-xs">
+            <input type="text" value="${ind.support}" onchange="updateInd(${idx}, 'support', this.value)" placeholder="公司/主管輔導與支援資源" class="p-1 border rounded text-xs">
           </div>
         </div>`;
       });
-      container.innerHTML = html;
+      container.innerHTML = html || "<p class='text-xs text-slate-400'>目前無指標，請點擊上方按鈕新增。</p>";
     }
 
     function updateInd(idx, field, val) {
@@ -591,8 +596,17 @@
     }
 
     function addIndicator() {
-      window.currentPip.indicators.push({ title: "新指標", objective: "", expectation: "", kpi: "", support: "" });
+      if (!window.currentPip.indicators) window.currentPip.indicators = [];
+      const num = window.currentPip.indicators.length + 1;
+      window.currentPip.indicators.push({ title: `指標${num}`, objective: "", expectation: "", kpi: "", support: "" });
       renderIndicators();
+    }
+
+    function deleteIndicator(idx) {
+      if (confirm("確定要刪除此項改善指標嗎？")) {
+        window.currentPip.indicators.splice(idx, 1);
+        renderIndicators();
+      }
     }
 
     function switchWeekTab(w) {
