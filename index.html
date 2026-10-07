@@ -162,7 +162,7 @@
         <button onclick="switchAdminStepTab(3)" id="stepTab3" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-signature mr-2"></i>步驟三：期末結案與多主管簽核</button>
       </div>
 
-      <!-- 可直接被畫面擷取與原生列印的的主要區塊 -->
+      <!-- 可直接被畫面擷取與原生列印的主要區塊 -->
       <div id="editorCaptureArea" class="bg-white rounded-b-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
         
         <div class="border-b pb-4 text-center">
@@ -208,7 +208,7 @@
           </div>
         </div>
 
-        <!-- 步驟二 -->
+        <!-- 步驟二 (主管審核端，含員工各期回報時間戳記) -->
         <div id="stepSection2" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">三、 4 期追蹤評估機制與主管評語</h3>
           
@@ -221,10 +221,13 @@
 
           <div id="weekPanelContent" class="space-y-4 bg-slate-50 p-4 rounded-lg border">
             <div class="bg-white p-4 rounded border">
-              <h4 class="text-xs font-bold text-slate-500 mb-2">【員工當期回報成果】</h4>
+              <div class="flex justify-between items-center mb-2">
+                <h4 class="text-xs font-bold text-slate-500">【員工當期回報成果】</h4>
+                <span id="wEmpSubmitTime" class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">回報時間：尚未送出</span>
+              </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                 <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
-                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px]">無</p></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px] whitespace-pre-line text-slate-800">無</p></div>
               </div>
             </div>
 
@@ -246,7 +249,7 @@
           </div>
         </div>
 
-        <!-- 步驟三 (含發布主管專屬總評權限控管) -->
+        <!-- 步驟三 (簽名卡片區) -->
         <div id="stepSection3" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
@@ -641,6 +644,7 @@
       openPipEditor(pipId);
     }
 
+    // 重大優化：改為 Firestore 即時監聽 onSnapshot（同仁送出時主管頁面免按 F5 即時跳出成果）
     async function openPipEditor(pipId) {
       const { doc, onSnapshot, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       
@@ -879,7 +883,7 @@
       renderChecklist();
     }
 
-    // 主管端切換第 1~4 期分頁：精確帶出同仁回報之 Google Drive 連結與工作心得
+    // 主管端切換第 1~4 期分頁：精確帶出同仁回報之 Google Drive 連結、工作心得與回報時間戳記
     function switchWeekTab(w) {
       window.activeWeek = parseInt(w);
       for (let i = 1; i <= 4; i++) {
@@ -893,6 +897,11 @@
 
       const wData = (window.currentPip.weeklyReviews || {})[w] || {};
       
+      const submitTimeEl = document.getElementById("wEmpSubmitTime");
+      if (submitTimeEl) {
+        submitTimeEl.innerText = wData.submitTime ? "同仁回報時間：" + wData.submitTime : "回報時間：尚未送出";
+      }
+
       const driveLinkEl = document.getElementById("wEmpDriveLink");
       if (driveLinkEl) {
         if (wData.driveLink && wData.driveLink.trim() !== "") {
@@ -1290,6 +1299,7 @@
         reviewsSummaryHtml += `<div class="bg-white p-3 rounded border text-xs space-y-1">
           <div class="flex justify-between font-bold text-slate-700">
             <span>第 ${w} 期評核結果：<span class="text-indigo-600">${wData.result || '尚未評核'}</span></span>
+            <span class="text-[10px] text-slate-400 font-normal">${wData.submitTime ? '同仁回報於: ' + wData.submitTime : ''}</span>
           </div>
           <p class="text-slate-600 bg-slate-50 p-2 rounded">主管評語：${wData.managerComment || '無'}</p>
         </div>`;
@@ -1388,27 +1398,30 @@
       if (notesEl) notesEl.value = wData.notes || "";
     }
 
-    // 重大修復：精確讀取下拉選單選中的期數 (1~4期)，並完整同步寫入 Firebase
+    // 重大修復：寫入精確回報時間戳記 (submitTime)
     async function submitEmpWeekData() {
       if (window.currentPip.status === "已結案") {
         alert("專案已正式結案，無法再變更資料！");
         return;
       }
 
-      // 精確抓取員工當前選取的期數下拉選單
       const weekSelect = document.getElementById("empWeekSelect");
       const w = weekSelect ? parseInt(weekSelect.value) : (window.activeWeek || 1);
 
       const driveVal = document.getElementById("empDriveInput").value.trim();
       const notesVal = document.getElementById("empNotesInput").value.trim();
 
+      const now = new Date();
+      const submitTimeStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
+
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
       
-      // 物件合併，保留原本主管寫的評語，僅更新員工成果
+      // 物件合併，寫入精確的回報時間戳記 submitTime
       window.currentPip.weeklyReviews[w] = {
         ...window.currentPip.weeklyReviews[w],
         driveLink: driveVal,
-        notes: notesVal
+        notes: notesVal,
+        submitTime: submitTimeStr
       };
 
       if (window.currentPip.status === "退回修訂中") {
@@ -1419,7 +1432,7 @@
       await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
 
       triggerEmailNotification("emp_update");
-      alert(`第 ${w} 期進度已成功送出！主管端畫面已即時同步更新！`);
+      alert(`第 ${w} 期進度已成功送出！回報時間（${submitTimeStr}）已寫入紀錄！`);
       renderEmployeeCard();
     }
   </script>
