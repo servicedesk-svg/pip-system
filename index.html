@@ -257,7 +257,7 @@
           <div id="printAllWeeksContainer" class="hidden print-flat-history space-y-4"></div>
         </div>
 
-        <!-- 步驟三 (含發布主管專屬總評權限控管，且支援儲存共享) -->
+        <!-- 步驟三 -->
         <div id="stepSection3" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
@@ -300,7 +300,6 @@
 
     <!-- 5. 員工頁面 (Employee Portal) -->
     <div id="viewEmployee" class="hidden space-y-6">
-      <!-- 多 PIP 專案下拉切換選單 (專治延長 PIP 或歷史專案) -->
       <div id="empProjectSelectorBox" class="hidden bg-white rounded-xl shadow p-4 border flex items-center justify-between print-hide">
         <label class="text-xs font-bold text-slate-700 flex items-center">
           <i class="fa-solid fa-folder-tree text-indigo-600 mr-2 text-base"></i>選擇 PIP 計畫專案：
@@ -313,7 +312,7 @@
 
   </div>
 
-  <!-- 獨立的「👁️ 檢視內容 Modal 視窗」 -->
+  <!-- Modal 視窗 -->
   <div id="previewModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 print-hide">
     <div class="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl border">
       <div class="flex justify-between items-center border-b pb-3">
@@ -327,7 +326,6 @@
     </div>
   </div>
 
-  <!-- 首登修改密碼 Modal -->
   <div id="firstLoginModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 print-hide">
     <div class="bg-white rounded-xl p-6 max-w-sm w-full space-y-4 shadow-xl">
       <h3 class="text-lg font-bold text-slate-900 text-center"><i class="fa-solid fa-key text-amber-500 mr-2"></i>首次登入 - 請變更新密碼</h3>
@@ -337,7 +335,6 @@
     </div>
   </div>
 
-  <!-- 簽名 Modal -->
   <div id="signModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print-hide">
     <div class="bg-white rounded-xl p-6 max-w-md w-full space-y-4">
       <h3 class="text-lg font-bold text-slate-900">線上電子簽名</h3>
@@ -371,12 +368,16 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // 最高維護者固定 Email
+    const SUPER_MAINTAINER_EMAIL = "service.desk@youth-cpa.com.tw";
+
     const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyxtHxcWN1g9Rezhz-gjocsYKJmWHd-wx1G3eULrWfog61KH8hP4XsglETOUnkA_l1k/exec";
     if (!localStorage.getItem("gasApiUrl")) {
       localStorage.setItem("gasApiUrl", DEFAULT_GAS_URL);
     }
 
     window.db = db;
+    window.SUPER_MAINTAINER_EMAIL = SUPER_MAINTAINER_EMAIL;
     window.currentUser = null;
     window.currentPip = null;
     window.empAllPips = [];
@@ -387,7 +388,7 @@
 
     async function initSystemData() {
       const initUsers = [
-        { email: "service.desk@youth-cpa.com.tw", name: "系統維護者", role: "super_admin", password: "admin", isDefault: false },
+        { email: SUPER_MAINTAINER_EMAIL, name: "系統維護者", role: "super_admin", password: "admin", isDefault: false },
         { email: "sincere.huang@youth-cpa.com.tw", name: "Sincere Huang (襄理)", role: "super_admin", password: "sincere", isDefault: true },
         { email: "jenny.yang@youth-cpa.com.tw", name: "Jenny Yang (襄理)", role: "manager", password: "jenny", isDefault: true },
         { email: "celine.lin@youth-cpa.com.tw", name: "Celine Lin (林宜貞)", role: "employee", password: "celine", isDefault: true }
@@ -512,6 +513,7 @@
       alert("GAS 發信 API 儲存成功！");
     }
 
+    // 重大權限保護：隱藏並鎖定最高維護者的修改/刪除按鈕
     async function loadSuperAdminData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const db = getFirestore();
@@ -523,14 +525,19 @@
       usersSnap.forEach(d => {
         const u = d.data();
         window.allUsersMap[u.email] = u.name;
+        
+        const isProtectedUser = u.email === window.SUPER_MAINTAINER_EMAIL;
+
         userHtml += `<tr class="border-b p-2">
-          <td class="p-2">${u.email}</td>
+          <td class="p-2">${u.email} ${isProtectedUser ? '<span class="text-[10px] text-amber-600 bg-amber-50 px-1 rounded border border-amber-200">受保護主帳號</span>' : ''}</td>
           <td class="p-2">${u.name}</td>
           <td class="p-2">${u.role}</td>
           <td class="p-2 font-mono text-indigo-600 font-bold">${u.password}</td>
           <td class="p-2 space-x-1">
-            <button onclick="adminResetPwd('${u.email}')" class="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-200 hover:bg-amber-100">重置密碼</button>
-            <button onclick="deleteUser('${u.email}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded border border-rose-200 hover:bg-rose-100">刪除帳號</button>
+            ${isProtectedUser 
+              ? `<span class="text-xs text-slate-400 italic">權限受保鎖定</span>` 
+              : `<button onclick="adminResetPwd('${u.email}')" class="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-200 hover:bg-amber-100">重置密碼</button>
+                 <button onclick="deleteUser('${u.email}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded border border-rose-200 hover:bg-rose-100">刪除帳號</button>`}
           </td>
         </tr>`;
         if (u.role === "employee") empOptions += `<option value="${u.email}">${u.name} (${u.email})</option>`;
@@ -548,7 +555,12 @@
       loadMasterPipList();
     }
 
+    // 重大權限鎖定防護：強制拒絕修改或刪除最高維護者
     async function adminResetPwd(email) {
+      if (email === window.SUPER_MAINTAINER_EMAIL) {
+        alert("權限不足！「最高維護者」主帳號受系統保護，其他管理者無法重置其密碼。");
+        return;
+      }
       const newPwd = prompt(`請輸入 ${email} 的新密碼：`);
       if (newPwd) {
         const { doc, updateDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
@@ -559,6 +571,10 @@
     }
 
     async function deleteUser(email) {
+      if (email === window.SUPER_MAINTAINER_EMAIL) {
+        alert("權限不足！「最高維護者」主帳號受系統保護，無法刪除！");
+        return;
+      }
       if (confirm(`確定要刪除帳號 ${email} 嗎？此動作無法復原。`)) {
         const { doc, deleteDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
         await deleteDoc(doc(getFirestore(), "users", email));
@@ -672,7 +688,6 @@
       openPipEditor(pipId);
     }
 
-    // 改為 Firestore 即時監聽 onSnapshot
     async function openPipEditor(pipId) {
       const { doc, onSnapshot, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       
@@ -703,7 +718,6 @@
       document.getElementById("editorEmpAckDate").innerText = p.empAckDate || "尚未確認接收";
       document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
 
-      // 載入填好的期末結果與處置評語
       if (p.finalOutcome) {
         const r = document.querySelector(`input[name="finalOutcome"][value="${p.finalOutcome}"]`);
         if (r) {
@@ -719,7 +733,6 @@
       const isPublisher = window.currentUser.email === p.publisherEmail;
       const isSuperAdmin = window.currentUser.role === "super_admin";
 
-      // 防呆按鈕顯示邏輯
       document.getElementById("btnSaveDraft").classList.toggle("hidden", isClosed || isWaitingAck);
       document.getElementById("btnReturnRevise").classList.toggle("hidden", isClosed || isWaitingAck);
 
@@ -965,7 +978,6 @@
       }
     }
 
-    // 嚴格控制同仁簽名按鈕權限
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       if (!grid) return;
@@ -976,7 +988,6 @@
       let html = "";
       const sigs = p.signatures || {};
 
-      // 1. 同仁簽名卡片 (唯有專案進入「待同仁簽回」時才解鎖簽名按鈕)
       const empSign = sigs['emp'];
       const empSignTime = sigs['emp_time'] || '';
       const isCurrentEmp = window.currentUser.email === p.empEmail;
@@ -992,7 +1003,6 @@
               : `<span class="text-xs text-amber-600 block my-2 font-semibold">${isWaitingAck ? '待同仁簽回' : '等待主管發送期末結案'}</span>`)}
       </div>`;
 
-      // 2. 輔導主管群簽名卡片
       const pubEmail = p.publisherEmail;
       const assignedMgrs = p.assignedManagers || [];
       const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
@@ -1025,7 +1035,6 @@
       checkFinalizeLockStatus();
     }
 
-    // 連動【發送期末結案】按鈕：只要主管群全體簽名完成即可解鎖！
     function checkFinalizeLockStatus() {
       const pubEmail = window.currentPip.publisherEmail;
       const assignedMgrs = window.currentPip.assignedManagers || [];
@@ -1044,7 +1053,6 @@
         }
       }
 
-      // 只有在專案狀態為「已結案」且「雙方（主管+同仁）通通簽完名」時，PDF 列印按鈕才解鎖
       const bothSidesSigned = allMgrsSigned && sigs['emp'];
       const isClosed = window.currentPip.status === "已結案";
       const btnPdf = document.getElementById("btnPdfDownload");
@@ -1074,7 +1082,6 @@
       if (window.signaturePad) window.signaturePad.clear();
     }
 
-    // 同仁簽名完成後自動歸檔結案，主管無需再簽第二次或點按鈕！
     async function saveSignature() {
       if (!window.signaturePad || window.signaturePad.isEmpty()) {
         alert("請先手寫簽名！");
@@ -1088,7 +1095,6 @@
       window.currentPip.signatures[window.targetSignRole] = dataUrl;
       window.currentPip.signatures[window.targetSignRole + '_time'] = timeStr;
 
-      // 若是在「待同仁簽回」狀態下，同仁簽名完成瞬間自動轉為「已結案」
       if (window.targetSignRole === 'emp' && window.currentPip.status === '待同仁簽回') {
         window.currentPip.status = '已結案';
       }
@@ -1113,7 +1119,6 @@
       alert("變更已成功儲存至雲端資料庫！其他主管可同步查看最新期末評語與處置結果。");
     }
 
-    // 關鍵修復：把步驟三填寫的「期末結果」與「主管綜合總評」一併儲存
     async function savePipDataToDb() {
       const wRes = document.querySelector('input[name="wResult"]:checked');
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
@@ -1155,7 +1160,6 @@
       }
     }
 
-    // 主管群簽名完成後點擊，將專案發送給同仁簽回
     async function finalizePipProject() {
       if (confirm("主管群已全體確認簽核，確定要發送期末結案通知給同仁簽回嗎？")) {
         window.currentPip.status = "待同仁簽回";
@@ -1242,7 +1246,6 @@
       }
     }
 
-    // 呼叫原生列印
     async function exportToPdf() {
       const p = window.currentPip;
       const sigs = p.signatures || {};
@@ -1294,7 +1297,6 @@
       location.reload();
     }
 
-    // 主管專案列表即時監聽 onSnapshot
     async function loadManagerData() {
       const { collection, onSnapshot, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       
@@ -1315,7 +1317,6 @@
       });
     }
 
-    // 同仁端拉取所有隸屬該同仁的 PIP 專案
     async function loadEmployeeData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
