@@ -208,7 +208,7 @@
           </div>
         </div>
 
-        <!-- 步驟二 (主管審核端) -->
+        <!-- 步驟二 -->
         <div id="stepSection2" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">三、 4 期追蹤評估機制與主管評語</h3>
           
@@ -223,8 +223,8 @@
             <div class="bg-white p-4 rounded border">
               <h4 class="text-xs font-bold text-slate-500 mb-2">【員工當期回報成果】</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs font-bold">尚未提供</a></div>
-                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px] whitespace-pre-line text-slate-800">無</p></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px]">無</p></div>
               </div>
             </div>
 
@@ -246,12 +246,12 @@
           </div>
         </div>
 
-        <!-- 步驟三 (簽名卡片區) -->
+        <!-- 步驟三 (含發布主管專屬總評權限控管) -->
         <div id="stepSection3" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
           <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
-            <div class="space-y-2 text-sm">
+            <div id="finalOutcomeRadiosBox" class="space-y-2 text-sm">
               <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="通過 PIP" onchange="toggleExtendInput(false)" class="mr-2">  通過 PIP</label>
               <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="延長 PIP" onchange="toggleExtendInput(true)" class="mr-2">  延長 PIP</label>
               <div id="extendDateBox" class="hidden ml-6 flex items-center space-x-2">
@@ -261,8 +261,8 @@
               <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="未通過 PIP" onchange="toggleExtendInput(false)" class="mr-2">  未通過 PIP</label>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">主管綜合總評語 (大輸入框)</label>
-              <textarea id="finalManagerSummary" rows="5" placeholder="請輸入期末綜合評語..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+              <label class="block text-xs font-bold text-slate-600 mb-1">正式發布主管綜合總評語 (大輸入框)</label>
+              <textarea id="finalManagerSummary" rows="5" placeholder="請正式發布主管輸入期末綜合評語..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
             </div>
           </div>
 
@@ -641,7 +641,6 @@
       openPipEditor(pipId);
     }
 
-    // 重大優化：改為 Firestore 即時監聽 onSnapshot（同仁送出時主管頁面免按 F5 即時跳出成果）
     async function openPipEditor(pipId) {
       const { doc, onSnapshot, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       
@@ -692,6 +691,14 @@
 
       document.getElementById("btnAddIndBtn").classList.toggle("hidden", isClosed);
       document.getElementById("btnAddTaskBtn").classList.toggle("hidden", isClosed);
+
+      // 步驟三：主管綜合總評寫入權限控管 (僅「正式發布主管」與「最高管理者」可編輯)
+      const canEditFinalSummary = (isPublisher || isSuperAdmin) && !isClosed;
+      const summaryTextarea = document.getElementById("finalManagerSummary");
+      const radiosInputs = document.querySelectorAll('input[name="finalOutcome"]');
+      
+      if (summaryTextarea) summaryTextarea.disabled = !canEditFinalSummary;
+      radiosInputs.forEach(r => r.disabled = !canEditFinalSummary);
 
       switchAdminStepTab(1);
       renderIndicators();
@@ -874,10 +881,10 @@
 
     // 主管端切換第 1~4 期分頁：精確帶出同仁回報之 Google Drive 連結與工作心得
     function switchWeekTab(w) {
-      window.activeWeek = w;
+      window.activeWeek = parseInt(w);
       for (let i = 1; i <= 4; i++) {
         const btn = document.getElementById(`tabW${i}`);
-        if (i === w) {
+        if (i === parseInt(w)) {
           btn.className = "px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600";
         } else {
           btn.className = "px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500";
