@@ -257,7 +257,7 @@
           <div id="printAllWeeksContainer" class="hidden print-flat-history space-y-4"></div>
         </div>
 
-        <!-- 步驟三 (含發布主管專屬總評權限控管) -->
+        <!-- 步驟三 (簽名卡片區) -->
         <div id="stepSection3" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
@@ -300,6 +300,14 @@
 
     <!-- 5. 員工頁面 (Employee Portal) -->
     <div id="viewEmployee" class="hidden space-y-6">
+      <!-- 新增：多 PIP 專案下拉切換選單 (專治延長 PIP 或歷史專案) -->
+      <div id="empProjectSelectorBox" class="hidden bg-white rounded-xl shadow p-4 border flex items-center justify-between print-hide">
+        <label class="text-xs font-bold text-slate-700 flex items-center">
+          <i class="fa-solid fa-folder-tree text-indigo-600 mr-2 text-base"></i>選擇 PIP 計畫專案：
+        </label>
+        <select id="empProjectSelect" onchange="switchEmpProject(this.value)" class="px-3 py-1.5 border rounded-lg text-xs font-bold text-indigo-900 bg-indigo-50/50 outline-none"></select>
+      </div>
+
       <div id="empPipCard" class="bg-white rounded-xl shadow p-6 border border-slate-200 space-y-6"></div>
     </div>
 
@@ -371,6 +379,7 @@
     window.db = db;
     window.currentUser = null;
     window.currentPip = null;
+    window.empAllPips = []; // 存同仁所有 PIP 專案
     window.allUsersMap = {};
     window.activeWeek = 1;
     window.signaturePad = null;
@@ -664,7 +673,7 @@
       openPipEditor(pipId);
     }
 
-    // 重大優化：改為 Firestore 即時監聽 onSnapshot（同仁送出時主管頁面免按 F5 即時跳出成果）
+    // 改為 Firestore 即時監聽 onSnapshot
     async function openPipEditor(pipId) {
       const { doc, onSnapshot, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       
@@ -706,7 +715,7 @@
       if (isClosed) {
         document.getElementById("btnPublish").classList.add("hidden");
         document.getElementById("btnFinalize").classList.add("hidden");
-        document.getElementById("btnReopenPip").classList.toggle("hidden", !isSuperAdmin); // 僅 Super Admin 在結案時可重開
+        document.getElementById("btnReopenPip").classList.toggle("hidden", !isSuperAdmin);
       } else {
         document.getElementById("btnPublish").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
         document.getElementById("btnFinalize").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
@@ -905,7 +914,7 @@
       renderChecklist();
     }
 
-    // 主管端切換第 1~4 期分頁：精確帶出同仁回報之 Google Drive 連結、工作心得與回報時間戳記
+    // 主管端切換第 1~4 期分頁
     function switchWeekTab(w) {
       window.activeWeek = parseInt(w);
       for (let i = 1; i <= 4; i++) {
@@ -947,7 +956,7 @@
       }
     }
 
-    // 繪製簽名卡片
+    // 通用繪製簽名卡片 (主管與同仁端均可完整調用)
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       if (!grid) return;
@@ -997,6 +1006,13 @@
       });
 
       grid.innerHTML = html;
+
+      // 同步填入同仁端的全體會簽卡片容器
+      const empSignGrid = document.getElementById("empSignaturesGrid");
+      if (empSignGrid) {
+        empSignGrid.innerHTML = html;
+      }
+
       checkFinalizeLockStatus();
     }
 
@@ -1204,7 +1220,7 @@
       }
     }
 
-    // 關鍵重構：列印前將第 1~4 期完整平舖印出，確保不被 Tab 隱藏
+    // 呼叫原生列印
     async function exportToPdf() {
       const p = window.currentPip;
       const sigs = p.signatures || {};
@@ -1247,11 +1263,11 @@
 
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      // 3. 呼叫瀏覽器原生列印
       window.print();
 
-      // 4. 還原網頁狀態
-      switchAdminStepTab(3);
+      if (window.currentUser.role !== 'employee') {
+        switchAdminStepTab(3);
+      }
     }
 
     function backToDashboard() {
@@ -1279,18 +1295,20 @@
       });
     }
 
+    // 重大優化：同仁端拉取所有隸屬該同仁的 PIP 專案 (包含延長 PIP 或歷史結案專案)
     async function loadEmployeeData() {
       const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
-      let empPip = null;
+      
+      window.empAllPips = [];
       pipsSnap.forEach(d => {
         const p = d.data();
         if (p.empEmail === window.currentUser.email && p.status !== "草稿") {
-          empPip = p;
+          window.empAllPips.push(p);
         }
       });
 
-      if (!empPip) {
+      if (window.empAllPips.length === 0) {
         document.getElementById("empPipCard").innerHTML = `
           <div class="text-center py-12 space-y-3">
             <i class="fa-solid fa-folder-open text-slate-300 text-4xl"></i>
@@ -1300,11 +1318,35 @@
         return;
       }
 
-      window.currentPip = empPip;
+      // 若有專案，繪製專案切換下拉選單
+      const selectorBox = document.getElementById("empProjectSelectorBox");
+      const selectEl = document.getElementById("empProjectSelect");
+
+      if (window.empAllPips.length > 1) {
+        selectorBox.classList.remove("hidden");
+        let optionsHtml = "";
+        window.empAllPips.forEach(p => {
+          optionsHtml += `<option value="${p.id}">【${p.status}】 ${p.startDate} ~ ${p.endDate}</option>`;
+        });
+        selectEl.innerHTML = optionsHtml;
+      } else {
+        selectorBox.classList.add("hidden");
+      }
+
+      // 預設開啓第一個（最新的）專案
+      window.currentPip = window.empAllPips[0];
 
       if (!window.currentPip.empAckDate) {
         autoConfirmEmpAck();
       } else {
+        renderEmployeeCard();
+      }
+    }
+
+    function switchEmpProject(pipId) {
+      const target = window.empAllPips.find(p => p.id === pipId);
+      if (target) {
+        window.currentPip = target;
         renderEmployeeCard();
       }
     }
@@ -1414,16 +1456,16 @@
           </div>
         </div>
 
-        <div class="border p-4 rounded-lg bg-slate-50 text-center space-y-2">
-          <h4 class="text-xs font-bold text-slate-700">受輔導同仁期末正式簽名簽回</h4>
-          ${empSign 
-            ? `<img src="${empSign}" class="h-14 mx-auto"><span class="text-xs text-emerald-600 font-bold block">✓ 您已完成線上簽名簽回</span>` 
-            : `<button onclick="openSignModal('emp')" class="bg-indigo-600 text-white text-xs font-bold px-5 py-2 rounded shadow hover:bg-indigo-700 transition print-hide"><i class="fa-solid fa-pen-nib mr-1"></i>點此進行同仁期末手寫簽名簽回</button>`}
+        <!-- 重大修復：同仁端同步顯示全體主管與同仁之會簽簽名矩陣 -->
+        <div class="border p-4 rounded-lg bg-slate-50 space-y-3">
+          <h3 class="text-sm font-bold text-slate-800"><i class="fa-solid fa-file-signature text-indigo-600 mr-1"></i>主管與同仁會簽手寫簽名紀錄</h3>
+          <div id="empSignaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 min-h-[100px]"></div>
         </div>
 
         ${isClosed ? `<div class="flex justify-end pt-2 print-hide"><button onclick="exportToPdf()" class="bg-slate-900 text-white px-5 py-2 rounded text-xs font-bold shadow hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>列印 / 另存正式合規 PDF 報告</button></div>` : ''}
       `;
       document.getElementById("empPipCard").innerHTML = html;
+      renderSignatures(); // 強制繪製包含主管群在內的所有簽名
       if (!isClosed) loadEmpWeekData(1);
     }
 
@@ -1442,7 +1484,7 @@
       if (notesEl) notesEl.value = wData.notes || "";
     }
 
-    // 重大修復：寫入精確回報時間戳記 (submitTime)
+    // 寫入精確回報時間戳記 (submitTime)
     async function submitEmpWeekData() {
       if (window.currentPip.status === "已結案") {
         alert("專案已正式結案，無法再變更資料！");
@@ -1460,7 +1502,6 @@
 
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
       
-      // 物件合併，寫入精確的回報時間戳記 submitTime
       window.currentPip.weeklyReviews[w] = {
         ...window.currentPip.weeklyReviews[w],
         driveLink: driveVal,
