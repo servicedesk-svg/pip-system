@@ -257,7 +257,7 @@
           <div id="printAllWeeksContainer" class="hidden print-flat-history space-y-4"></div>
         </div>
 
-        <!-- 步驟三 (含發布主管專屬總評權限控管) -->
+        <!-- 步驟三 (含發布主管專屬總評權限控管，且支援儲存共享) -->
         <div id="stepSection3" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
@@ -272,14 +272,14 @@
               <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="未通過 PIP" onchange="toggleExtendInput(false)" class="mr-2">  未通過 PIP</label>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-600 mb-1">正式發布主管綜合總評語 (大輸入框)</label>
+              <label class="block text-xs font-bold text-slate-600 mb-1">正式發布主管綜合總評語 (填寫後請點【純儲存變更】共享給其他主管)</label>
               <textarea id="finalManagerSummary" rows="5" placeholder="請正式發布主管輸入期末綜合評語..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
             </div>
           </div>
 
           <div class="border-t pt-6">
             <h3 class="text-base font-bold text-slate-900 mb-2"><i class="fa-solid fa-file-signature text-indigo-600 mr-2"></i>五、 主管與同仁會簽手寫簽名區</h3>
-            <p class="text-xs text-slate-500 mb-4 print-hide">發布主管與指派參與的主管登入後均可點擊「點此確認簽核」進行手寫簽名。主管群全體簽名完成後即可發送期末結案通知給同仁簽回。</p>
+            <p class="text-xs text-slate-500 mb-4 print-hide">發布主管與指派參與的主管確認期末總評無誤後，可點擊「點此確認簽核」進行手寫簽名。主管群全體簽名完成後即可發送期末結案通知給同仁簽回。</p>
             <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 min-h-[120px] p-2 bg-slate-50/50 rounded-lg"></div>
           </div>
         </div>
@@ -703,6 +703,17 @@
       document.getElementById("editorEmpAckDate").innerText = p.empAckDate || "尚未確認接收";
       document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
 
+      // 載入填好的期末結果與處置評語
+      if (p.finalOutcome) {
+        const r = document.querySelector(`input[name="finalOutcome"][value="${p.finalOutcome}"]`);
+        if (r) {
+          r.checked = true;
+          toggleExtendInput(p.finalOutcome === "延長 PIP");
+        }
+      }
+      if (p.extendDate) document.getElementById("finalExtendDate").value = p.extendDate;
+      if (p.finalSummary) document.getElementById("finalManagerSummary").value = p.finalSummary;
+
       const isClosed = p.status === "已結案";
       const isWaitingAck = p.status === "待同仁簽回";
       const isPublisher = window.currentUser.email === p.publisherEmail;
@@ -954,7 +965,7 @@
       }
     }
 
-    // 嚴格控制「同仁簽名按鈕」解鎖權限
+    // 嚴格控制同仁簽名按鈕權限
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       if (!grid) return;
@@ -1014,7 +1025,7 @@
       checkFinalizeLockStatus();
     }
 
-    // 連動【發送期末結案】按鈕
+    // 連動【發送期末結案】按鈕：只要主管群全體簽名完成即可解鎖！
     function checkFinalizeLockStatus() {
       const pubEmail = window.currentPip.publisherEmail;
       const assignedMgrs = window.currentPip.assignedManagers || [];
@@ -1033,6 +1044,7 @@
         }
       }
 
+      // 只有在專案狀態為「已結案」且「雙方（主管+同仁）通通簽完名」時，PDF 列印按鈕才解鎖
       const bothSidesSigned = allMgrsSigned && sigs['emp'];
       const isClosed = window.currentPip.status === "已結案";
       const btnPdf = document.getElementById("btnPdfDownload");
@@ -1098,9 +1110,10 @@
 
     async function saveDraftOnly() {
       await savePipDataToDb();
-      alert("變更已成功儲存至雲端資料庫！");
+      alert("變更已成功儲存至雲端資料庫！其他主管可同步查看最新期末評語與處置結果。");
     }
 
+    // 關鍵修復：把步驟三填寫的「期末結果」與「主管綜合總評」一併儲存
     async function savePipDataToDb() {
       const wRes = document.querySelector('input[name="wResult"]:checked');
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
@@ -1112,8 +1125,11 @@
 
       const finalRes = document.querySelector('input[name="finalOutcome"]:checked');
       if (finalRes) window.currentPip.finalOutcome = finalRes.value;
-      window.currentPip.extendDate = document.getElementById("finalExtendDate").value;
-      window.currentPip.finalSummary = document.getElementById("finalManagerSummary").value;
+      const extendDateInput = document.getElementById("finalExtendDate");
+      if (extendDateInput) window.currentPip.extendDate = extendDateInput.value;
+      
+      const summaryInput = document.getElementById("finalManagerSummary");
+      if (summaryInput) window.currentPip.finalSummary = summaryInput.value;
 
       const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
       await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
