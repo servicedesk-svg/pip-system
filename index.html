@@ -8,15 +8,40 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- HTML2PDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- Signature Pad -->
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+  <!-- 原生列印排版樣式優化 -->
+  <style>
+    @media print {
+      .print-hide, nav, #adminStepTabsBar, button {
+        display: none !important;
+      }
+      body {
+        background-color: white !important;
+        color: black !important;
+      }
+      #viewPipEditor, #editorCaptureArea, #empPipCard {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+      }
+      #stepSection1, #stepSection2, #stepSection3 {
+        display: block !important;
+      }
+      textarea {
+        border: none !important;
+        resize: none !important;
+      }
+    }
+  </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
 
   <!-- 頂部導覽列 -->
-  <nav class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+  <nav class="bg-slate-900 text-white shadow-md sticky top-0 z-50 print-hide">
     <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center space-x-3 cursor-pointer" onclick="backToDashboard()">
         <i class="fa-solid fa-building-columns text-indigo-400 text-xl"></i>
@@ -33,7 +58,7 @@
   <div class="max-w-7xl mx-auto p-4 md:p-6">
 
     <!-- 1. 登入區塊 -->
-    <div id="viewLogin" class="max-w-md mx-auto my-12 bg-white rounded-xl shadow-lg p-8 border border-slate-200">
+    <div id="viewLogin" class="max-w-md mx-auto my-12 bg-white rounded-xl shadow-lg p-8 border border-slate-200 print-hide">
       <div class="text-center mb-6">
         <h2 class="text-2xl font-bold text-slate-900">系統登入</h2>
         <p class="text-sm text-indigo-600 font-semibold mt-1">友士國際會計師事務所</p>
@@ -53,7 +78,7 @@
     </div>
 
     <!-- 2. 最高管理者區塊 (Super Admin) -->
-    <div id="viewSuperAdmin" class="hidden space-y-6">
+    <div id="viewSuperAdmin" class="hidden space-y-6 print-hide">
       <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
         <h3 class="text-lg font-bold text-slate-900 mb-2"><i class="fa-solid fa-gears text-indigo-600 mr-2"></i>系統郵件 API 設定</h3>
         <div class="flex gap-3">
@@ -118,7 +143,7 @@
     </div>
 
     <!-- 3. 主管頁面 (Manager Portal) -->
-    <div id="viewManager" class="hidden space-y-6">
+    <div id="viewManager" class="hidden space-y-6 print-hide">
       <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
         <h3 class="text-lg font-bold text-slate-900 mb-2"><i class="fa-solid fa-user-check text-indigo-600 mr-2"></i>我負責指派/輔導的 PIP 專案</h3>
         <div id="managerPipList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
@@ -135,7 +160,7 @@
         <button onclick="switchAdminStepTab(3)" id="stepTab3" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-signature mr-2"></i>步驟三：期末結案與多主管簽核</button>
       </div>
 
-      <!-- 可直接被畫面擷取導出 PDF 的主要區塊 -->
+      <!-- 可直接被畫面擷取與原生列印的的主要區塊 -->
       <div id="editorCaptureArea" class="bg-white rounded-b-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
         
         <div class="border-b pb-4 text-center">
@@ -159,7 +184,7 @@
 
         <!-- 步驟一 -->
         <div id="stepSection1" class="space-y-6">
-          <div class="bg-indigo-50 p-3 rounded border border-indigo-100">
+          <div class="bg-indigo-50 p-3 rounded border border-indigo-100 print-hide">
             <label class="block text-xs font-bold text-indigo-900 mb-1"><i class="fa-brands fa-google-drive mr-1"></i>指定給員工上傳佐證資料的 Google Drive 雲端資料夾網址</label>
             <input type="url" id="pipDriveUploadUrl" onchange="updateDriveUploadUrl(this.value)" placeholder="https://drive.google.com/drive/folders/..." class="w-full p-2.5 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
           </div>
@@ -255,7 +280,7 @@
         <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (通知同仁)</button>
         <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (通知同仁簽回)</button>
         <button id="btnDeletePip" onclick="deleteCurrentPip()" class="hidden bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
-        <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-file-pdf mr-1"></i>下載合規 PDF (雙方簽完解鎖)</button>
+        <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-print mr-1"></i>列印 / 另存合規 PDF 報告</button>
       </div>
     </div>
 
@@ -368,11 +393,16 @@
     initSystemData();
 
     window.onload = () => {
+      initPad();
+    };
+
+    function initPad() {
       const canvas = document.getElementById("signatureCanvas");
       if (canvas) {
         window.signaturePad = new SignaturePad(canvas);
       }
-    };
+    }
+    window.initPad = initPad;
   </script>
 
   <script>
@@ -614,7 +644,6 @@
       refreshPipUI();
     }
 
-    // 關鍵修復：刷新面板與控制「已結案」下的按鈕隱藏/防呆
     function refreshPipUI() {
       const p = window.currentPip;
 
@@ -637,7 +666,7 @@
       const isPublisher = window.currentUser.email === p.publisherEmail;
       const isSuperAdmin = window.currentUser.role === "super_admin";
 
-      // 1. 已結案時，隱藏純儲存、正式發布、退回修訂、完成結案按鈕
+      // 已結案防呆按鈕鎖定
       document.getElementById("btnSaveDraft").classList.toggle("hidden", isClosed);
       document.getElementById("btnReturnRevise").classList.toggle("hidden", isClosed);
 
@@ -649,10 +678,8 @@
         document.getElementById("btnFinalize").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
       }
 
-      // 2. 刪除專案按鈕防呆：僅「發布主管」或「最高管理者」可以看到
       document.getElementById("btnDeletePip").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
 
-      // 3. 凍結指標與任務新增按鈕
       document.getElementById("btnAddIndBtn").classList.toggle("hidden", isClosed);
       document.getElementById("btnAddTaskBtn").classList.toggle("hidden", isClosed);
 
@@ -660,7 +687,7 @@
       renderIndicators();
       renderChecklist();
       switchWeekTab(1);
-      renderSignatures(); // 強制繪製簽名
+      renderSignatures(); // 強制繪製簽名卡片
       checkFinalizeLockStatus();
     }
 
@@ -859,7 +886,7 @@
       }
     }
 
-    // 關鍵強效繪製簽名卡片 (徹底避免容器為空)
+    // 關鍵修復：絕對強效繪製簽名卡片 (徹底避免容器為空)
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       if (!grid) return;
@@ -885,7 +912,7 @@
               : `<span class="text-xs text-amber-600 block my-2 font-semibold">待同仁簽回</span>`)}
       </div>`;
 
-      // 2. 輔導主管群簽名卡片
+      // 2. 輔導主管群簽名卡片 (包含發布主管 + 指派參與主管)
       const pubEmail = p.publisherEmail;
       const assignedMgrs = p.assignedManagers || [];
       const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
@@ -946,6 +973,11 @@
     function openSignModal(role) {
       window.targetSignRole = role;
       document.getElementById("signModal").classList.remove("hidden");
+      if (window.signaturePad) {
+        window.signaturePad.clear();
+      } else {
+        initPad();
+      }
     }
     function closeSignModal() {
       document.getElementById("signModal").classList.add("hidden");
@@ -955,7 +987,7 @@
     }
 
     async function saveSignature() {
-      if (window.signaturePad.isEmpty()) {
+      if (!window.signaturePad || window.signaturePad.isEmpty()) {
         alert("請先手寫簽名！");
         return;
       }
@@ -1111,7 +1143,7 @@
       }
     }
 
-    // PDF 截圖導出 (確保三個步驟區塊通通展開後再擷取)
+    // 終極高質感方案：開啟所有步驟，直接呼叫瀏覽器原生列印 / 另存為 PDF
     async function exportToPdf() {
       const p = window.currentPip;
       const sigs = p.signatures || {};
@@ -1125,15 +1157,7 @@
         return;
       }
 
-      const targetElement = window.currentUser.role === 'employee' 
-        ? document.getElementById("empPipCard")
-        : document.getElementById("editorCaptureArea");
-
-      if (!targetElement) {
-        alert("找不到擷取畫面容器！");
-        return;
-      }
-
+      // 展開所有步驟分頁供完整列印
       const sec1 = document.getElementById("stepSection1");
       const sec2 = document.getElementById("stepSection2");
       const sec3 = document.getElementById("stepSection3");
@@ -1141,22 +1165,13 @@
       if (sec2) sec2.classList.remove("hidden");
       if (sec3) sec3.classList.remove("hidden");
 
-      document.querySelectorAll(".print-hide").forEach(el => el.classList.add("hidden"));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // 觸發瀏覽器原生列印視窗 (可選目的地為「另存為 PDF」)
+      window.print();
 
-      const opt = {
-        margin: 0.3,
-        filename: `友士國際會計師事務所_PIP改善計畫期末報告_${p.empName}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-      };
-
-      await html2pdf().set(opt).from(targetElement).save();
-
+      // 恢復網頁頁籤狀態
       switchAdminStepTab(3);
-      document.querySelectorAll(".print-hide").forEach(el => el.classList.remove("hidden"));
     }
 
     function backToDashboard() {
@@ -1322,7 +1337,7 @@
             : `<button onclick="openSignModal('emp')" class="bg-indigo-600 text-white text-xs font-bold px-5 py-2 rounded shadow hover:bg-indigo-700 transition print-hide"><i class="fa-solid fa-pen-nib mr-1"></i>點此進行同仁期末手寫簽名簽回</button>`}
         </div>
 
-        ${isClosed ? `<div class="flex justify-end pt-2 print-hide"><button onclick="exportToPdf()" class="bg-slate-900 text-white px-5 py-2 rounded text-xs font-bold shadow hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>下載正式合規 PDF 報告</button></div>` : ''}
+        ${isClosed ? `<div class="flex justify-end pt-2 print-hide"><button onclick="exportToPdf()" class="bg-slate-900 text-white px-5 py-2 rounded text-xs font-bold shadow hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>列印 / 另存正式合規 PDF 報告</button></div>` : ''}
       `;
       document.getElementById("empPipCard").innerHTML = html;
       if (!isClosed) loadEmpWeekData(1);
