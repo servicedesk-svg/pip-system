@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- HTML2PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- Signature Pad -->
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 
@@ -160,7 +162,7 @@
         <button onclick="switchAdminStepTab(3)" id="stepTab3" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-signature mr-2"></i>步驟三：期末結案與多主管簽核</button>
       </div>
 
-      <!-- 可直接被畫面擷取與原生列印的的主要區塊 -->
+      <!-- 可直接被畫面擷取導出 PDF 的主要區塊 -->
       <div id="editorCaptureArea" class="bg-white rounded-b-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
         
         <div class="border-b pb-4 text-center">
@@ -244,19 +246,19 @@
           </div>
         </div>
 
-        <!-- 步驟三 -->
+        <!-- 步驟三 (簽名卡片區) -->
         <div id="stepSection3" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
           <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
             <div class="space-y-2 text-sm">
-              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="通過 PIP" onchange="toggleExtendInput(false)" class="mr-2">  通過 PIP</label>
-              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="延長 PIP" onchange="toggleExtendInput(true)" class="mr-2">  延長 PIP</label>
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="通過 PIP" onchange="toggleExtendInput(false)" class="mr-2"> ☐ 通過 PIP</label>
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="延長 PIP" onchange="toggleExtendInput(true)" class="mr-2"> ☐ 延長 PIP</label>
               <div id="extendDateBox" class="hidden ml-6 flex items-center space-x-2">
                 <span class="text-xs text-slate-600">延長至：</span>
                 <input type="date" id="finalExtendDate" class="px-2 py-1 border rounded text-xs">
               </div>
-              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="未通過 PIP" onchange="toggleExtendInput(false)" class="mr-2">  未通過 PIP</label>
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="未通過 PIP" onchange="toggleExtendInput(false)" class="mr-2"> ☐ 未通過 PIP</label>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">主管綜合總評語 (大輸入框)</label>
@@ -687,7 +689,7 @@
       renderIndicators();
       renderChecklist();
       switchWeekTab(1);
-      renderSignatures(); // 強制繪製簽名卡片
+      renderSignatures(); // 強制繪製簽名
       checkFinalizeLockStatus();
     }
 
@@ -886,7 +888,7 @@
       }
     }
 
-    // 關鍵修復：絕對強效繪製簽名卡片 (徹底避免容器為空)
+    // 關鍵修復：絕對強效繪製簽名卡片 (同步寫入主管與同仁)
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       if (!grid) return;
@@ -1358,6 +1360,7 @@
       if (notesEl) notesEl.value = wData.notes || "";
     }
 
+    // 關鍵修復：完美同步寫入，並觸發寄信通知
     async function submitEmpWeekData() {
       if (window.currentPip.status === "已結案") {
         alert("專案已正式結案，無法再變更資料！");
