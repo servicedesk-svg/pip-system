@@ -208,7 +208,7 @@
           </div>
         </div>
 
-        <!-- 步驟二 -->
+        <!-- 步驟二 (主管審核端) -->
         <div id="stepSection2" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">三、 4 期追蹤評估機制與主管評語</h3>
           
@@ -223,8 +223,8 @@
             <div class="bg-white p-4 rounded border">
               <h4 class="text-xs font-bold text-slate-500 mb-2">【員工當期回報成果】</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
-                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px]">無</p></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs font-bold">尚未提供</a></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px] whitespace-pre-line text-slate-800">無</p></div>
               </div>
             </div>
 
@@ -252,13 +252,13 @@
           
           <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
             <div class="space-y-2 text-sm">
-              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="通過 PIP" onchange="toggleExtendInput(false)" class="mr-2"> ☐ 通過 PIP</label>
-              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="延長 PIP" onchange="toggleExtendInput(true)" class="mr-2"> ☐ 延長 PIP</label>
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="通過 PIP" onchange="toggleExtendInput(false)" class="mr-2">  通過 PIP</label>
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="延長 PIP" onchange="toggleExtendInput(true)" class="mr-2">  延長 PIP</label>
               <div id="extendDateBox" class="hidden ml-6 flex items-center space-x-2">
                 <span class="text-xs text-slate-600">延長至：</span>
                 <input type="date" id="finalExtendDate" class="px-2 py-1 border rounded text-xs">
               </div>
-              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="未通過 PIP" onchange="toggleExtendInput(false)" class="mr-2"> ☐ 未通過 PIP</label>
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="未通過 PIP" onchange="toggleExtendInput(false)" class="mr-2">  未通過 PIP</label>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">主管綜合總評語 (大輸入框)</label>
@@ -872,6 +872,7 @@
       renderChecklist();
     }
 
+    // 主管端切換第 1~4 期分頁：精確帶出同仁回報之 Google Drive 連結與工作心得
     function switchWeekTab(w) {
       window.activeWeek = w;
       for (let i = 1; i <= 4; i++) {
@@ -884,10 +885,22 @@
       }
 
       const wData = (window.currentPip.weeklyReviews || {})[w] || {};
-      document.getElementById("wEmpProgress").innerText = wData.driveLink || wData.notes ? "已回報" : "進行中";
-      document.getElementById("wEmpDriveLink").href = wData.driveLink || "#";
-      document.getElementById("wEmpDriveLink").innerText = wData.driveLink ? "開啟同仁提供之檔案 ↗" : "尚未提供";
-      document.getElementById("wEmpNotes").innerText = wData.notes || "無";
+      
+      const driveLinkEl = document.getElementById("wEmpDriveLink");
+      if (driveLinkEl) {
+        if (wData.driveLink && wData.driveLink.trim() !== "") {
+          driveLinkEl.href = wData.driveLink;
+          driveLinkEl.innerText = "開啟同仁提供之檔案 ↗ (" + wData.driveLink + ")";
+        } else {
+          driveLinkEl.href = "#";
+          driveLinkEl.innerText = "尚未提供";
+        }
+      }
+
+      const notesEl = document.getElementById("wEmpNotes");
+      if (notesEl) {
+        notesEl.innerText = (wData.notes && wData.notes.trim() !== "") ? wData.notes : "無";
+      }
 
       document.getElementById("wManagerComment").value = wData.managerComment || "";
       if (wData.result) {
@@ -1167,7 +1180,6 @@
         return;
       }
 
-      // 展開所有步驟分頁供完整列印
       const sec1 = document.getElementById("stepSection1");
       const sec2 = document.getElementById("stepSection2");
       const sec3 = document.getElementById("stepSection3");
@@ -1177,10 +1189,8 @@
 
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      // 觸發瀏覽器原生列印視窗 (可選目的地為「另存為 PDF」)
       window.print();
 
-      // 恢復網頁頁籤狀態
       switchAdminStepTab(3);
     }
 
@@ -1363,7 +1373,7 @@
     }
 
     function loadEmpWeekData(w) {
-      window.activeWeek = w;
+      window.activeWeek = parseInt(w);
       const wData = (window.currentPip.weeklyReviews || {})[w] || {};
       const driveEl = document.getElementById("empDriveInput");
       const notesEl = document.getElementById("empNotesInput");
@@ -1371,19 +1381,27 @@
       if (notesEl) notesEl.value = wData.notes || "";
     }
 
-    // 關鍵修復：完美同步寫入，並觸發寄信通知
+    // 重大修復：精確讀取下拉選單選中的期數 (1~4期)，並完整同步寫入 Firebase
     async function submitEmpWeekData() {
       if (window.currentPip.status === "已結案") {
         alert("專案已正式結案，無法再變更資料！");
         return;
       }
-      const w = window.activeWeek;
+
+      // 精確抓取員工當前選取的期數下拉選單
+      const weekSelect = document.getElementById("empWeekSelect");
+      const w = weekSelect ? parseInt(weekSelect.value) : (window.activeWeek || 1);
+
+      const driveVal = document.getElementById("empDriveInput").value.trim();
+      const notesVal = document.getElementById("empNotesInput").value.trim();
 
       if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
+      
+      // 物件合併，保留原本主管寫的評語，僅更新員工成果
       window.currentPip.weeklyReviews[w] = {
         ...window.currentPip.weeklyReviews[w],
-        driveLink: document.getElementById("empDriveInput").value,
-        notes: document.getElementById("empNotesInput").value
+        driveLink: driveVal,
+        notes: notesVal
       };
 
       if (window.currentPip.status === "退回修訂中") {
@@ -1394,7 +1412,7 @@
       await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
 
       triggerEmailNotification("emp_update");
-      alert(`第 ${w} 期進度已成功送出！專案狀態已更新為「進行中」，並已自動發送 Email 通知主管群！`);
+      alert(`第 ${w} 期進度已成功送出！主管端畫面已即時同步更新！`);
       renderEmployeeCard();
     }
   </script>
