@@ -231,7 +231,7 @@
                 <span id="wEmpSubmitTime" class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">回報時間：尚未送出</span>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs font-bold">尚未提供</a></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
                 <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px] whitespace-pre-line text-slate-800">無</p></div>
               </div>
             </div>
@@ -279,7 +279,7 @@
 
           <div class="border-t pt-6">
             <h3 class="text-base font-bold text-slate-900 mb-2"><i class="fa-solid fa-file-signature text-indigo-600 mr-2"></i>五、 主管與同仁會簽手寫簽名區</h3>
-            <p class="text-xs text-slate-500 mb-4 print-hide">發布主管與指派參與的主管登入後均可點擊「點此確認簽核」進行手寫簽名。全體簽名完成後方可執行結案。</p>
+            <p class="text-xs text-slate-500 mb-4 print-hide">發布主管與指派參與的主管登入後均可點擊「點此確認簽核」進行手寫簽名。主管群全體簽名完成後即可發送期末結案通知給同仁簽回。</p>
             <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 min-h-[120px] p-2 bg-slate-50/50 rounded-lg"></div>
           </div>
         </div>
@@ -292,7 +292,7 @@
         <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布任務 (發給同仁)</button>
         <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (通知同仁)</button>
         <button id="btnReopenPip" onclick="reopenClosedPip()" class="hidden bg-purple-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-purple-700"><i class="fa-solid fa-lock-open mr-1"></i>重開/退回結案 (管理者權限)</button>
-        <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (通知同仁簽回)</button>
+        <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-paper-plane mr-1"></i>發送期末結案 (通知同仁簽回)</button>
         <button id="btnDeletePip" onclick="deleteCurrentPip()" class="hidden bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
         <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-print mr-1"></i>列印 / 另存合規 PDF 報告</button>
       </div>
@@ -703,14 +703,15 @@
       document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
 
       const isClosed = p.status === "已結案";
+      const isWaitingAck = p.status === "待同仁簽回";
       const isPublisher = window.currentUser.email === p.publisherEmail;
       const isSuperAdmin = window.currentUser.role === "super_admin";
 
-      // 已結案防呆按鈕鎖定
-      document.getElementById("btnSaveDraft").classList.toggle("hidden", isClosed);
-      document.getElementById("btnReturnRevise").classList.toggle("hidden", isClosed);
+      // 防呆按鈕顯示邏輯
+      document.getElementById("btnSaveDraft").classList.toggle("hidden", isClosed || isWaitingAck);
+      document.getElementById("btnReturnRevise").classList.toggle("hidden", isClosed || isWaitingAck);
 
-      if (isClosed) {
+      if (isClosed || isWaitingAck) {
         document.getElementById("btnPublish").classList.add("hidden");
         document.getElementById("btnFinalize").classList.add("hidden");
         document.getElementById("btnReopenPip").classList.toggle("hidden", !isSuperAdmin);
@@ -722,10 +723,10 @@
 
       document.getElementById("btnDeletePip").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
 
-      document.getElementById("btnAddIndBtn").classList.toggle("hidden", isClosed);
-      document.getElementById("btnAddTaskBtn").classList.toggle("hidden", isClosed);
+      document.getElementById("btnAddIndBtn").classList.toggle("hidden", isClosed || isWaitingAck);
+      document.getElementById("btnAddTaskBtn").classList.toggle("hidden", isClosed || isWaitingAck);
 
-      const canEditFinalSummary = (isPublisher || isSuperAdmin) && !isClosed;
+      const canEditFinalSummary = (isPublisher || isSuperAdmin) && !isClosed && !isWaitingAck;
       const summaryTextarea = document.getElementById("finalManagerSummary");
       const radiosInputs = document.querySelectorAll('input[name="finalOutcome"]');
       
@@ -762,10 +763,10 @@
     function renderIndicators() {
       const container = document.getElementById("indicatorsContainer");
       let html = "";
-      const isClosed = window.currentPip.status === "已結案";
+      const isLocked = window.currentPip.status === "已結案" || window.currentPip.status === "待同仁簽回";
 
       (window.currentPip.indicators || []).forEach((ind, idx) => {
-        if (ind.isEditing && !isClosed) {
+        if (ind.isEditing && !isLocked) {
           html += `<div class="bg-white p-4 rounded-lg border-2 border-indigo-200 shadow-sm space-y-3 relative">
             <div class="flex justify-between items-center bg-indigo-50/60 p-2 rounded">
               <input type="text" value="${ind.title}" onchange="updateInd(${idx}, 'title', this.value)" placeholder="指標標題" class="w-full font-bold bg-white p-1.5 border rounded text-slate-800 text-sm">
@@ -801,7 +802,7 @@
             </div>
             <div class="flex space-x-2 flex-shrink-0">
               <button onclick="previewIndContent(${idx})" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 border border-indigo-200 rounded hover:bg-indigo-100 font-bold"><i class="fa-solid fa-eye mr-1"></i>檢視內容</button>
-              ${!isClosed ? `<button onclick="toggleIndMode(${idx}, true)" class="text-xs bg-white text-slate-700 px-3 py-1.5 border rounded hover:bg-slate-100 font-bold"><i class="fa-solid fa-pen mr-1"></i>展開編輯</button>
+              ${!isLocked ? `<button onclick="toggleIndMode(${idx}, true)" class="text-xs bg-white text-slate-700 px-3 py-1.5 border rounded hover:bg-slate-100 font-bold"><i class="fa-solid fa-pen mr-1"></i>展開編輯</button>
               <button onclick="deleteIndicator(${idx})" class="text-xs text-rose-500 hover:underline px-1"><i class="fa-solid fa-trash"></i></button>` : ''}
             </div>
           </div>`;
@@ -853,10 +854,10 @@
     function renderChecklist() {
       const container = document.getElementById("checklistContainer");
       let html = "";
-      const isClosed = window.currentPip.status === "已結案";
+      const isLocked = window.currentPip.status === "已結案" || window.currentPip.status === "待同仁簽回";
 
       (window.currentPip.checklist || []).forEach((item, idx) => {
-        if (item.isEditing && !isClosed) {
+        if (item.isEditing && !isLocked) {
           html += `<div class="flex items-center space-x-2 bg-white p-2 rounded border-2 border-emerald-200">
             <span class="text-xs font-bold text-slate-400 w-6">${idx + 1}.</span>
             <textarea onchange="updateChecklistItem(${idx}, this.value)" rows="2" placeholder="輸入任務內容..." class="flex-1 p-2 border rounded text-xs bg-slate-50/50">${item.text}</textarea>
@@ -871,7 +872,7 @@
             </div>
             <div class="flex space-x-2">
               <button onclick="previewTaskContent(${idx})" class="text-xs text-indigo-600 hover:underline font-bold"><i class="fa-solid fa-eye mr-1"></i>檢視</button>
-              ${!isClosed ? `<button onclick="toggleChecklistMode(${idx}, true)" class="text-xs text-slate-600 hover:underline font-bold"><i class="fa-solid fa-pen mr-1"></i>編輯</button>
+              ${!isLocked ? `<button onclick="toggleChecklistMode(${idx}, true)" class="text-xs text-slate-600 hover:underline font-bold"><i class="fa-solid fa-pen mr-1"></i>編輯</button>
               <button onclick="deleteChecklistItem(${idx})" class="text-xs text-rose-500 hover:underline px-1"><i class="fa-solid fa-trash"></i></button>` : ''}
             </div>
           </div>`;
@@ -952,7 +953,6 @@
       }
     }
 
-    // 通用繪製簽名卡片 (主管與同仁端均可完整調用)
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       if (!grid) return;
@@ -1003,7 +1003,6 @@
 
       grid.innerHTML = html;
 
-      // 同步填入同仁端的全體會簽卡片容器
       const empSignGrid = document.getElementById("empSignaturesGrid");
       if (empSignGrid) {
         empSignGrid.innerHTML = html;
@@ -1012,6 +1011,7 @@
       checkFinalizeLockStatus();
     }
 
+    // 重大邏輯修正：只要主管群全體簽名完成，【發送期末結案】即可連動解鎖！
     function checkFinalizeLockStatus() {
       const pubEmail = window.currentPip.publisherEmail;
       const assignedMgrs = window.currentPip.assignedManagers || [];
@@ -1030,6 +1030,7 @@
         }
       }
 
+      // 只有在專案狀態為「已結案」且「雙方（主管+同仁）通通簽完名」時，PDF 列印按鈕才解鎖
       const bothSidesSigned = allMgrsSigned && sigs['emp'];
       const isClosed = window.currentPip.status === "已結案";
       const btnPdf = document.getElementById("btnPdfDownload");
@@ -1059,6 +1060,7 @@
       if (window.signaturePad) window.signaturePad.clear();
     }
 
+    // 重大邏輯修正：同仁簽名套用後，直接自動判定並正式轉為「已結案」！
     async function saveSignature() {
       if (!window.signaturePad || window.signaturePad.isEmpty()) {
         alert("請先手寫簽名！");
@@ -1072,6 +1074,11 @@
       window.currentPip.signatures[window.targetSignRole] = dataUrl;
       window.currentPip.signatures[window.targetSignRole + '_time'] = timeStr;
 
+      // 若是在「待同仁簽回」狀態下，同仁簽名完成瞬間自動切換為「已結案」
+      if (window.targetSignRole === 'emp' && window.currentPip.status === '待同仁簽回') {
+        window.currentPip.status = '已結案';
+      }
+
       closeSignModal();
       await savePipDataToDb();
       
@@ -1080,7 +1087,7 @@
       if (window.currentUser.email === window.currentPip.empEmail) {
         renderEmployeeCard();
       }
-      alert("線上記名手寫簽名成功！");
+      alert("線上記名手寫簽名成功！專案已正式歸檔結案。");
     }
 
     function toggleExtendInput(show) {
@@ -1130,12 +1137,13 @@
       }
     }
 
+    // 重大邏輯修正：主管群簽完名後發送結案，專案轉為「待同仁簽回」狀態
     async function finalizePipProject() {
-      if (confirm("全體主管均已確認簽核，確定要完成此 PIP 結案並通知同仁簽回嗎？")) {
-        window.currentPip.status = "已結案";
+      if (confirm("主管群已全體確認簽核，確定要發送期末結案通知給同仁簽回嗎？")) {
+        window.currentPip.status = "待同仁簽回";
         await savePipDataToDb();
         triggerEmailNotification("final_to_all");
-        alert("專案已正式宣佈結案，並已自動發信通知同仁登入查看結果與進行最終簽回！");
+        alert("期末結案報告已成功發送！系統已自動發信通知同仁登入檢視並進行最終簽回。");
         refreshPipUI();
       }
     }
@@ -1362,6 +1370,7 @@
     function renderEmployeeCard() {
       const empPip = window.currentPip;
       const isClosed = empPip.status === "已結案";
+      const isWaitingAck = empPip.status === "待同仁簽回";
 
       let driveBtn = empPip.driveUploadUrl 
         ? `<a href="${empPip.driveUploadUrl}" target="_blank" class="inline-block bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded shadow hover:bg-indigo-700 transition print-hide"><i class="fa-brands fa-google-drive mr-1"></i>點此開啟 Google Drive 雲端資料夾上傳佐證檔案 ↗</a>`
@@ -1369,8 +1378,8 @@
 
       let checklistHtml = "";
       (empPip.checklist || []).forEach((item, idx) => {
-        checklistHtml += `<label class="flex items-start space-x-3 p-2.5 bg-white rounded border ${isClosed ? 'opacity-75 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'}">
-          <input type="checkbox" ${item.done ? 'checked' : ''} ${isClosed ? 'disabled' : ''} onchange="toggleEmpChecklist(${idx}, this.checked)" class="mt-1 h-4 w-4 text-indigo-600 rounded">
+        checklistHtml += `<label class="flex items-start space-x-3 p-2.5 bg-white rounded border ${isClosed || isWaitingAck ? 'opacity-75 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'}">
+          <input type="checkbox" ${item.done ? 'checked' : ''} ${isClosed || isWaitingAck ? 'disabled' : ''} onchange="toggleEmpChecklist(${idx}, this.checked)" class="mt-1 h-4 w-4 text-indigo-600 rounded">
           <span class="text-xs text-slate-800 ${item.done ? 'line-through text-slate-400' : ''}">${item.text}</span>
         </label>`;
       });
@@ -1391,9 +1400,9 @@
 
       let ackBlock = `<span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200"><i class="fa-solid fa-circle-check mr-1"></i>已於 ${empPip.empAckDate} 確認接收本 PIP 計畫</span>`;
 
-      let reportBlock = isClosed ? `
+      let reportBlock = (isClosed || isWaitingAck) ? `
         <div class="bg-slate-100 p-4 rounded-lg border text-xs text-slate-500 font-semibold text-center">
-          🔒 本 PIP 改善計畫已宣告結案，歷史進度與成果資料已全數凍結存檔。
+          🔒 本 PIP 改善計畫已進行期末結案，歷史進度與成果資料已全數凍結存檔。
         </div>` : `
         <div class="border p-4 rounded-lg bg-slate-50 space-y-4">
           <h3 class="text-sm font-bold">每期進度回報 (第 1 ~ 4 期)</h3>
@@ -1462,11 +1471,11 @@
       `;
       document.getElementById("empPipCard").innerHTML = html;
       renderSignatures(); // 強制繪製包含主管群在內的所有簽名
-      if (!isClosed) loadEmpWeekData(1);
+      if (!isClosed && !isWaitingAck) loadEmpWeekData(1);
     }
 
     function toggleEmpChecklist(idx, checked) {
-      if (window.currentPip.status === "已結案") return;
+      if (window.currentPip.status === "已結案" || window.currentPip.status === "待同仁簽回") return;
       window.currentPip.checklist[idx].done = checked;
       savePipDataToDb();
     }
@@ -1482,7 +1491,7 @@
 
     // 寫入精確回報時間戳記 (submitTime)
     async function submitEmpWeekData() {
-      if (window.currentPip.status === "已結案") {
+      if (window.currentPip.status === "已結案" || window.currentPip.status === "待同仁簽回") {
         alert("專案已正式結案，無法再變更資料！");
         return;
       }
