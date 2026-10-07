@@ -8,15 +8,13 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- HTML2PDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- Signature Pad -->
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 
   <!-- 原生列印排版樣式優化 -->
   <style>
     @media print {
-      .print-hide, nav, #adminStepTabsBar, button {
+      .print-hide, nav, #adminStepTabsBar, button, #weekTabs {
         display: none !important;
       }
       body {
@@ -36,6 +34,12 @@
       textarea {
         border: none !important;
         resize: none !important;
+      }
+      .print-flat-history {
+        display: block !important;
+      }
+      #weekPanelContent {
+        display: none !important;
       }
     }
   </style>
@@ -208,7 +212,7 @@
           </div>
         </div>
 
-        <!-- 步驟二 (主管審核端，含員工各期回報時間戳記) -->
+        <!-- 步驟二 (主管審核端) -->
         <div id="stepSection2" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">三、 4 期追蹤評估機制與主管評語</h3>
           
@@ -219,6 +223,7 @@
             <button onclick="switchWeekTab(4)" id="tabW4" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第四期</button>
           </div>
 
+          <!-- 網頁互動呈現單期 -->
           <div id="weekPanelContent" class="space-y-4 bg-slate-50 p-4 rounded-lg border">
             <div class="bg-white p-4 rounded border">
               <div class="flex justify-between items-center mb-2">
@@ -247,9 +252,12 @@
               </div>
             </div>
           </div>
+
+          <!-- 列印時專用：平舖展示第 1~4 期全數歷程 -->
+          <div id="printAllWeeksContainer" class="hidden print-flat-history space-y-4"></div>
         </div>
 
-        <!-- 步驟三 (簽名卡片區) -->
+        <!-- 步驟三 (含發布主管專屬總評權限控管) -->
         <div id="stepSection3" class="hidden space-y-6">
           <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
           
@@ -283,6 +291,7 @@
         <button id="btnSaveDraft" onclick="saveDraftOnly()" class="bg-slate-600 text-white px-4 py-2 rounded text-sm hover:bg-slate-700"><i class="fa-solid fa-floppy-disk mr-1"></i>純儲存變更 (不發信)</button>
         <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布任務 (發給同仁)</button>
         <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (通知同仁)</button>
+        <button id="btnReopenPip" onclick="reopenClosedPip()" class="hidden bg-purple-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-purple-700"><i class="fa-solid fa-lock-open mr-1"></i>重開/退回結案 (管理者權限)</button>
         <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (通知同仁簽回)</button>
         <button id="btnDeletePip" onclick="deleteCurrentPip()" class="hidden bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
         <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-print mr-1"></i>列印 / 另存合規 PDF 報告</button>
@@ -587,6 +596,17 @@
       }
     }
 
+    // 重大功能：最高管理者 (Super Admin) 專屬「重開 / 退回結案」
+    async function reopenClosedPip() {
+      if (confirm("【管理者權限確認】確定要重開此 PIP 專案嗎？\n專案狀態將由「已結案」恢復為「進行中」，並解除所有唯讀鎖定。")) {
+        window.currentPip.status = "進行中";
+        const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
+        alert("專案已成功重開，狀態切換為「進行中」！");
+        refreshPipUI();
+      }
+    }
+
     async function createUser(e) {
       e.preventDefault();
       const email = document.getElementById("newUserEmail").value.trim().toLowerCase();
@@ -686,9 +706,11 @@
       if (isClosed) {
         document.getElementById("btnPublish").classList.add("hidden");
         document.getElementById("btnFinalize").classList.add("hidden");
+        document.getElementById("btnReopenPip").classList.toggle("hidden", !isSuperAdmin); // 僅 Super Admin 在結案時可重開
       } else {
         document.getElementById("btnPublish").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
         document.getElementById("btnFinalize").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
+        document.getElementById("btnReopenPip").classList.add("hidden");
       }
 
       document.getElementById("btnDeletePip").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
@@ -925,7 +947,7 @@
       }
     }
 
-    // 絕對強效繪製簽名卡片 (同步寫入主管與同仁)
+    // 繪製簽名卡片
     function renderSignatures() {
       const grid = document.getElementById("signaturesGrid");
       if (!grid) return;
@@ -951,7 +973,7 @@
               : `<span class="text-xs text-amber-600 block my-2 font-semibold">待同仁簽回</span>`)}
       </div>`;
 
-      // 2. 輔導主管群簽名卡片 (包含發布主管 + 指派參與主管)
+      // 2. 輔導主管群簽名卡片
       const pubEmail = p.publisherEmail;
       const assignedMgrs = p.assignedManagers || [];
       const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
@@ -1182,7 +1204,7 @@
       }
     }
 
-    // 終極高質感方案：開啟所有步驟，直接呼叫瀏覽器原生列印 / 另存為 PDF
+    // 關鍵重構：列印前將第 1~4 期完整平舖印出，確保不被 Tab 隱藏
     async function exportToPdf() {
       const p = window.currentPip;
       const sigs = p.signatures || {};
@@ -1196,6 +1218,26 @@
         return;
       }
 
+      // 1. 動態平舖 4 期歷程 HTML
+      const printContainer = document.getElementById("printAllWeeksContainer");
+      if (printContainer) {
+        let historyHtml = '<h4 class="font-bold text-slate-800 border-b pb-2 mb-3">【4 期完整歷程與評核紀錄】</h4>';
+        for (let w = 1; w <= 4; w++) {
+          const wData = (p.weeklyReviews || {})[w] || {};
+          historyHtml += `<div class="bg-slate-50 p-4 rounded border mb-3 space-y-2">
+            <div class="flex justify-between font-bold text-xs border-b pb-1">
+              <span>第 ${w} 期追蹤評估</span>
+              <span class="text-indigo-600">評核結果：${wData.result || '尚未評核'} | 回報時間：${wData.submitTime || '未送出'}</span>
+            </div>
+            <div class="text-xs text-slate-700"><b>同仁成果連結：</b> ${wData.driveLink || '無'}</div>
+            <div class="text-xs text-slate-700"><b>同仁心得/SOP繳交：</b> ${wData.notes || '無'}</div>
+            <div class="text-xs text-indigo-900 bg-indigo-50 p-2 rounded"><b>主管指導評語：</b> ${wData.managerComment || '無'}</div>
+          </div>`;
+        }
+        printContainer.innerHTML = historyHtml;
+      }
+
+      // 2. 展開所有步驟區塊
       const sec1 = document.getElementById("stepSection1");
       const sec2 = document.getElementById("stepSection2");
       const sec3 = document.getElementById("stepSection3");
@@ -1205,8 +1247,10 @@
 
       await new Promise(resolve => setTimeout(resolve, 200));
 
+      // 3. 呼叫瀏覽器原生列印
       window.print();
 
+      // 4. 還原網頁狀態
       switchAdminStepTab(3);
     }
 
