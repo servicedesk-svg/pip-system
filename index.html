@@ -1,15 +1,1402 @@
-// 使用 Firestore 的 onSnapshot 進行即時同步監聽
-async function openPipEditor(pipId) {
-  const { doc, onSnapshot, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-  
-  // 建立即時監聽器
-  onSnapshot(doc(getFirestore(), "pips", pipId), (docSnap) => {
-    if (docSnap.exists()) {
-      window.currentPip = docSnap.data();
-      
-      // 自動即時更新主管端畫面
-      refreshPipUI();
-      switchWeekTab(window.activeWeek || 1);
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>友士國際會計師事務所 - PIP 績效改善計畫管理系統</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- HTML2PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Signature Pad -->
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+  <!-- 原生列印排版樣式優化 -->
+  <style>
+    @media print {
+      .print-hide, nav, #adminStepTabsBar, button {
+        display: none !important;
+      }
+      body {
+        background-color: white !important;
+        color: black !important;
+      }
+      #viewPipEditor, #editorCaptureArea, #empPipCard {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+      }
+      #stepSection1, #stepSection2, #stepSection3 {
+        display: block !important;
+      }
+      textarea {
+        border: none !important;
+        resize: none !important;
+      }
     }
-  });
-}
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
+
+  <!-- 頂部導覽列 -->
+  <nav class="bg-slate-900 text-white shadow-md sticky top-0 z-50 print-hide">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="backToDashboard()">
+        <i class="fa-solid fa-building-columns text-indigo-400 text-xl"></i>
+        <span class="font-bold text-lg tracking-wide">友士國際會計師事務所 - PIP 管理系統</span>
+      </div>
+      <div id="userInfoBar" class="hidden flex items-center space-x-4 text-sm">
+        <span id="userRoleBadge" class="bg-indigo-600 px-2.5 py-1 rounded-full text-xs font-semibold"></span>
+        <span id="userEmailDisplay" class="text-slate-300"></span>
+        <button onclick="logout()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-right-from-bracket mr-1"></i>登出</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto p-4 md:p-6">
+
+    <!-- 1. 登入區塊 -->
+    <div id="viewLogin" class="max-w-md mx-auto my-12 bg-white rounded-xl shadow-lg p-8 border border-slate-200 print-hide">
+      <div class="text-center mb-6">
+        <h2 class="text-2xl font-bold text-slate-900">系統登入</h2>
+        <p class="text-sm text-indigo-600 font-semibold mt-1">友士國際會計師事務所</p>
+      </div>
+      
+      <form onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">電子郵件 (Email)</label>
+          <input type="email" id="loginEmail" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">密碼</label>
+          <input type="password" id="loginPassword" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-semibold transition">登入系統</button>
+      </form>
+    </div>
+
+    <!-- 2. 最高管理者區塊 (Super Admin) -->
+    <div id="viewSuperAdmin" class="hidden space-y-6 print-hide">
+      <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-900 mb-2"><i class="fa-solid fa-gears text-indigo-600 mr-2"></i>系統郵件 API 設定</h3>
+        <div class="flex gap-3">
+          <input type="text" id="gasApiUrl" class="flex-1 px-3 py-2 border rounded-lg text-sm bg-slate-50">
+          <button onclick="saveGasUrl()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-700">更新 API</button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-900 mb-4"><i class="fa-solid fa-users-gear text-indigo-600 mr-2"></i>建立與維護帳號 (重置密碼 / 刪除帳號)</h3>
+        <form onsubmit="createUser(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <input type="email" id="newUserEmail" placeholder="使用者 Email" required class="px-3 py-2 border rounded-lg text-sm">
+          <input type="text" id="newUserName" placeholder="姓名 / 職稱" required class="px-3 py-2 border rounded-lg text-sm">
+          <input type="password" id="newUserPassword" placeholder="預設密碼" required class="px-3 py-2 border rounded-lg text-sm">
+          <select id="newUserRole" class="px-3 py-2 border rounded-lg text-sm">
+            <option value="manager">主管 (Manager)</option>
+            <option value="employee">員工 (Employee)</option>
+            <option value="super_admin">最高管理者 (Super Admin)</option>
+          </select>
+          <button type="submit" class="md:col-span-4 bg-indigo-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">+ 新增帳號</button>
+        </form>
+        <div id="userListTable" class="overflow-x-auto"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-900 mb-4"><i class="fa-solid fa-file-circle-plus text-indigo-600 mr-2"></i>建立全新 PIP 計畫</h3>
+        <form onsubmit="createPipProject(event)" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">選擇受輔導員工</label>
+              <select id="pipTargetEmployee" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">指定正式發布者 (發布與結案主責主管)</label>
+              <select id="pipPublisher" required class="w-full px-3 py-2 border rounded-lg text-sm"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">執行期間 (起～訖)</label>
+              <div class="flex items-center space-x-2">
+                <input type="date" id="pipStartDate" required class="w-full px-2 py-1.5 border rounded text-xs">
+                <span>~</span>
+                <input type="date" id="pipEndDate" required class="w-full px-2 py-1.5 border rounded text-xs">
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">指派參與主管群 (可多選，均需參與簽名)</label>
+            <div id="pipManagersCheckbox" class="flex flex-wrap gap-3 bg-slate-50 p-3 rounded-lg border text-sm"></div>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg text-sm font-semibold">建立草稿並前往編輯</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-900 mb-4"><i class="fa-solid fa-list-check text-indigo-600 mr-2"></i>全公司 PIP 專案一覽表</h3>
+        <div id="pipMasterList" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- 3. 主管頁面 (Manager Portal) -->
+    <div id="viewManager" class="hidden space-y-6 print-hide">
+      <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-900 mb-2"><i class="fa-solid fa-user-check text-indigo-600 mr-2"></i>我負責指派/輔導的 PIP 專案</h3>
+        <div id="managerPipList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </div>
+    </div>
+
+    <!-- 4. PIP 編輯與分頁覆核作業區 (Manager Shared Area) -->
+    <div id="viewPipEditor" class="hidden space-y-6">
+      <button onclick="backToDashboard()" class="text-sm text-slate-600 hover:text-slate-900 print-hide"><i class="fa-solid fa-arrow-left mr-1"></i>返回總覽</button>
+      
+      <div class="flex border-b bg-white rounded-t-xl overflow-hidden shadow print-hide" id="adminStepTabsBar">
+        <button onclick="switchAdminStepTab(1)" id="stepTab1" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50/50"><i class="fa-solid fa-pen-to-square mr-2"></i>步驟一：指標與任務設定</button>
+        <button onclick="switchAdminStepTab(2)" id="stepTab2" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-bars-progress mr-2"></i>步驟二：4 期歷程追蹤與建議</button>
+        <button onclick="switchAdminStepTab(3)" id="stepTab3" class="flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-signature mr-2"></i>步驟三：期末結案與多主管簽核</button>
+      </div>
+
+      <!-- 可直接被畫面擷取與原生列印的的主要區塊 -->
+      <div id="editorCaptureArea" class="bg-white rounded-b-xl shadow-lg p-6 md:p-8 border border-slate-200 space-y-6">
+        
+        <div class="border-b pb-4 text-center">
+          <p class="text-sm font-bold text-slate-600 tracking-wider">友士國際會計師事務所</p>
+          <h1 class="text-2xl font-bold text-slate-900 mt-1">績效改善計畫書（Performance Improvement Plan, PIP）</h1>
+          <p class="text-xs text-slate-500 mt-1">【法務與管理提示】本計畫書旨在輔導同仁提升專業水準與職場表現。輔導過程與各階段評核紀錄均作為檢視輔導歷程與最後手段性原則之依據。</p>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-lg text-sm border space-y-3">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div><span class="text-slate-500 text-xs block">受輔導員工</span><span id="editorEmpName" class="font-bold"></span></div>
+            <div><span class="text-slate-500 text-xs block">執行區間</span><span id="editorDates" class="font-bold text-xs"></span></div>
+            <div><span class="text-slate-500 text-xs block">★ 正式發布主管</span><span id="editorPublisher" class="font-bold text-indigo-600 text-xs"></span></div>
+            <div><span class="text-slate-500 text-xs block">參與輔導主管群</span><span id="editorManagers" class="font-bold text-xs"></span></div>
+          </div>
+          <div class="border-t pt-2 flex justify-between text-xs text-slate-600">
+            <span>專案當前狀態：<b id="editorStatus" class="text-indigo-600 font-bold">草稿</b></span>
+            <span>員工確認接收日期：<b id="editorEmpAckDate" class="text-slate-800">尚未確認</b></span>
+          </div>
+        </div>
+
+        <!-- 步驟一 -->
+        <div id="stepSection1" class="space-y-6">
+          <div class="bg-indigo-50 p-3 rounded border border-indigo-100 print-hide">
+            <label class="block text-xs font-bold text-indigo-900 mb-1"><i class="fa-brands fa-google-drive mr-1"></i>指定給員工上傳佐證資料的 Google Drive 雲端資料夾網址</label>
+            <input type="url" id="pipDriveUploadUrl" onchange="updateDriveUploadUrl(this.value)" placeholder="https://drive.google.com/drive/folders/..." class="w-full p-2.5 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="text-base font-bold text-slate-900">一、 核心改善指標與具體執行標準</h3>
+              <button id="btnAddIndBtn" onclick="addIndicator()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-100 font-bold print-hide">+ 新增改善指標</button>
+            </div>
+            <div id="indicatorsContainer" class="space-y-3"></div>
+          </div>
+
+          <div class="border-t pt-6">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="text-base font-bold text-slate-900">二、 具體工作任務清單 ( Check List )</h3>
+              <button id="btnAddTaskBtn" onclick="addChecklistItem()" class="text-xs bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded hover:bg-emerald-100 font-bold print-hide">+ 新增任務項目</button>
+            </div>
+            <div id="checklistContainer" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- 步驟二 -->
+        <div id="stepSection2" class="hidden space-y-6">
+          <h3 class="text-base font-bold text-slate-900 mb-3">三、 4 期追蹤評估機制與主管評語</h3>
+          
+          <div class="flex space-x-2 border-b mb-4 print-hide" id="weekTabs">
+            <button onclick="switchWeekTab(1)" id="tabW1" class="px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600">第一期</button>
+            <button onclick="switchWeekTab(2)" id="tabW2" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第二期</button>
+            <button onclick="switchWeekTab(3)" id="tabW3" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第三期</button>
+            <button onclick="switchWeekTab(4)" id="tabW4" class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500">第四期</button>
+          </div>
+
+          <div id="weekPanelContent" class="space-y-4 bg-slate-50 p-4 rounded-lg border">
+            <div class="bg-white p-4 rounded border">
+              <h4 class="text-xs font-bold text-slate-500 mb-2">【員工當期回報成果】</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">員工提供之成果檔案連結</span><a id="wEmpDriveLink" href="#" target="_blank" class="text-indigo-600 underline text-xs">尚未提供</a></div>
+                <div class="md:col-span-2"><span class="text-xs text-slate-400 block">個人心得/SOP繳交備註</span><p id="wEmpNotes" class="text-xs bg-slate-50 p-3 rounded border mt-1 min-h-[60px]">無</p></div>
+              </div>
+            </div>
+
+            <div id="managerReviewForm" class="space-y-3">
+              <h4 class="text-xs font-bold text-slate-500">【主管審核與當期指導評語】</h4>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">當期評核結果</label>
+                <div class="flex space-x-4 text-sm">
+                  <label class="flex items-center"><input type="radio" name="wResult" value="達標" class="mr-1"> 達標</label>
+                  <label class="flex items-center"><input type="radio" name="wResult" value="部分改善" class="mr-1"> 部分改善</label>
+                  <label class="flex items-center"><input type="radio" name="wResult" value="未達標" class="mr-1"> 未達標</label>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">主管當期評語與改善建議 (大輸入框)</label>
+                <textarea id="wManagerComment" rows="4" placeholder="請在此輸入詳細指導建議..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 步驟三 (簽名卡片區) -->
+        <div id="stepSection3" class="hidden space-y-6">
+          <h3 class="text-base font-bold text-slate-900 mb-3">四、 期末總評估與最終處置結果</h3>
+          
+          <div class="bg-slate-50 p-4 rounded-lg border space-y-3">
+            <div class="space-y-2 text-sm">
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="通過 PIP" onchange="toggleExtendInput(false)" class="mr-2"> ☐ 通過 PIP</label>
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="延長 PIP" onchange="toggleExtendInput(true)" class="mr-2"> ☐ 延長 PIP</label>
+              <div id="extendDateBox" class="hidden ml-6 flex items-center space-x-2">
+                <span class="text-xs text-slate-600">延長至：</span>
+                <input type="date" id="finalExtendDate" class="px-2 py-1 border rounded text-xs">
+              </div>
+              <label class="flex items-center font-semibold"><input type="radio" name="finalOutcome" value="未通過 PIP" onchange="toggleExtendInput(false)" class="mr-2"> ☐ 未通過 PIP</label>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">主管綜合總評語 (大輸入框)</label>
+              <textarea id="finalManagerSummary" rows="5" placeholder="請輸入期末綜合評語..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            </div>
+          </div>
+
+          <div class="border-t pt-6">
+            <h3 class="text-base font-bold text-slate-900 mb-2"><i class="fa-solid fa-file-signature text-indigo-600 mr-2"></i>五、 主管與同仁會簽手寫簽名區</h3>
+            <p class="text-xs text-slate-500 mb-4 print-hide">發布主管與指派參與的主管登入後均可點擊「點此確認簽核」進行手寫簽名。全體簽名完成後方可執行結案。</p>
+            <div id="signaturesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 min-h-[120px] p-2 bg-slate-50/50 rounded-lg"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 操作按鈕區 -->
+      <div class="flex flex-wrap gap-3 justify-end bg-white p-4 rounded-xl shadow border print-hide">
+        <button id="btnSaveDraft" onclick="saveDraftOnly()" class="bg-slate-600 text-white px-4 py-2 rounded text-sm hover:bg-slate-700"><i class="fa-solid fa-floppy-disk mr-1"></i>純儲存變更 (不發信)</button>
+        <button id="btnPublish" onclick="publishPip()" class="hidden bg-indigo-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-indigo-700"><i class="fa-solid fa-paper-plane mr-1"></i>正式發布任務 (發給同仁)</button>
+        <button id="btnReturnRevise" onclick="returnForRevision()" class="bg-amber-600 text-white px-4 py-2 rounded text-sm hover:bg-amber-700"><i class="fa-solid fa-rotate-left mr-1"></i>退回修訂 (通知同仁)</button>
+        <button id="btnFinalize" onclick="finalizePipProject()" class="hidden bg-emerald-600 text-white px-5 py-2 rounded text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-circle-check mr-1"></i>完成結案 (通知同仁簽回)</button>
+        <button id="btnDeletePip" onclick="deleteCurrentPip()" class="hidden bg-rose-600 text-white px-4 py-2 rounded text-sm hover:bg-rose-700"><i class="fa-solid fa-trash mr-1"></i>刪除專案</button>
+        <button id="btnPdfDownload" onclick="exportToPdf()" class="bg-slate-900 text-white px-4 py-2 rounded text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-print mr-1"></i>列印 / 另存合規 PDF 報告</button>
+      </div>
+    </div>
+
+    <!-- 5. 員工頁面 (Employee Portal) -->
+    <div id="viewEmployee" class="hidden space-y-6">
+      <div id="empPipCard" class="bg-white rounded-xl shadow p-6 border border-slate-200 space-y-6"></div>
+    </div>
+
+  </div>
+
+  <!-- 獨立的「👁️ 檢視內容 Modal 視窗」 -->
+  <div id="previewModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 print-hide">
+    <div class="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl border">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 id="previewModalTitle" class="text-base font-bold text-slate-900"><i class="fa-solid fa-eye text-indigo-600 mr-2"></i>檢視內容</h3>
+        <button onclick="closePreviewModal()" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+      </div>
+      <div id="previewModalBody" class="text-xs text-slate-700 space-y-3 leading-relaxed"></div>
+      <div class="flex justify-end pt-3 border-t">
+        <button onclick="closePreviewModal()" class="px-5 py-1.5 bg-slate-800 text-white rounded text-xs font-semibold">關閉預覽</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 首登修改密碼 Modal -->
+  <div id="firstLoginModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 print-hide">
+    <div class="bg-white rounded-xl p-6 max-w-sm w-full space-y-4 shadow-xl">
+      <h3 class="text-lg font-bold text-slate-900 text-center"><i class="fa-solid fa-key text-amber-500 mr-2"></i>首次登入 - 請變更新密碼</h3>
+      <p class="text-xs text-slate-500 text-center">為了保障您的資訊安全，請設定一組只有您知道的新密碼。</p>
+      <input type="password" id="firstNewPassword" placeholder="輸入新密碼" required class="w-full px-3 py-2 border rounded-lg text-sm">
+      <button onclick="saveFirstLoginPassword()" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">完成設定並登入</button>
+    </div>
+  </div>
+
+  <!-- 簽名 Modal -->
+  <div id="signModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print-hide">
+    <div class="bg-white rounded-xl p-6 max-w-md w-full space-y-4">
+      <h3 class="text-lg font-bold text-slate-900">線上電子簽名</h3>
+      <div class="border rounded-lg bg-slate-50">
+        <canvas id="signatureCanvas" width="380" height="180" class="w-full touch-none"></canvas>
+      </div>
+      <div class="flex justify-between">
+        <button onclick="clearSignature()" class="text-xs text-slate-500 underline">重置清空</button>
+        <div class="space-x-2">
+          <button onclick="closeSignModal()" class="px-4 py-1.5 border rounded text-xs">取消</button>
+          <button onclick="saveSignature()" class="px-4 py-1.5 bg-indigo-600 text-white rounded text-xs font-semibold">套用簽名</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase & App Script logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAnikohFy1Ee6T4Yb0iuqdxqTwVZ-juzdM",
+      authDomain: "my-company-pip.firebaseapp.com",
+      projectId: "my-company-pip",
+      storageBucket: "my-company-pip.firebasestorage.app",
+      messagingSenderId: "40771257701",
+      appId: "1:40771257701:web:19e3abf8b366c575accd8c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyxtHxcWN1g9Rezhz-gjocsYKJmWHd-wx1G3eULrWfog61KH8hP4XsglETOUnkA_l1k/exec";
+    if (!localStorage.getItem("gasApiUrl")) {
+      localStorage.setItem("gasApiUrl", DEFAULT_GAS_URL);
+    }
+
+    window.db = db;
+    window.currentUser = null;
+    window.currentPip = null;
+    window.allUsersMap = {};
+    window.activeWeek = 1;
+    window.signaturePad = null;
+    window.targetSignRole = null;
+
+    async function initSystemData() {
+      const initUsers = [
+        { email: "service.desk@youth-cpa.com.tw", name: "系統維護者", role: "super_admin", password: "admin", isDefault: false },
+        { email: "sincere.huang@youth-cpa.com.tw", name: "Sincere Huang (襄理)", role: "super_admin", password: "sincere", isDefault: true },
+        { email: "jenny.yang@youth-cpa.com.tw", name: "Jenny Yang (襄理)", role: "manager", password: "jenny", isDefault: true },
+        { email: "celine.lin@youth-cpa.com.tw", name: "Celine Lin (林宜貞)", role: "employee", password: "celine", isDefault: true }
+      ];
+
+      for (const u of initUsers) {
+        const uRef = doc(db, "users", u.email);
+        const snap = await getDoc(uRef);
+        if (!snap.exists()) {
+          await setDoc(uRef, u);
+        }
+      }
+
+      const usersSnap = await getDocs(collection(db, "users"));
+      usersSnap.forEach(d => {
+        const u = d.data();
+        window.allUsersMap[u.email] = u.name;
+      });
+
+      const savedUser = localStorage.getItem("pip_logged_user");
+      if (savedUser) {
+        window.currentUser = JSON.parse(savedUser);
+        enterSystem();
+      }
+    }
+    initSystemData();
+
+    window.onload = () => {
+      initPad();
+    };
+
+    function initPad() {
+      const canvas = document.getElementById("signatureCanvas");
+      if (canvas) {
+        window.signaturePad = new SignaturePad(canvas);
+      }
+    }
+    window.initPad = initPad;
+  </script>
+
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+      const pwd = document.getElementById("loginPassword").value.trim();
+
+      const userSnap = await getFirestoreDoc("users", email);
+      if (!userSnap || userSnap.password !== pwd) {
+        alert("帳號或密碼錯誤！");
+        return;
+      }
+
+      window.currentUser = userSnap;
+      localStorage.setItem("pip_logged_user", JSON.stringify(userSnap));
+
+      if (userSnap.isDefault) {
+        document.getElementById("firstLoginModal").classList.remove("hidden");
+        return;
+      }
+
+      enterSystem();
+    }
+
+    async function saveFirstLoginPassword() {
+      const newPwd = document.getElementById("firstNewPassword").value.trim();
+      if (!newPwd) {
+        alert("請輸入新密碼！");
+        return;
+      }
+
+      const { doc, updateDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await updateDoc(doc(getFirestore(), "users", window.currentUser.email), {
+        password: newPwd,
+        isDefault: false
+      });
+
+      window.currentUser.password = newPwd;
+      window.currentUser.isDefault = false;
+      localStorage.setItem("pip_logged_user", JSON.stringify(window.currentUser));
+
+      document.getElementById("firstLoginModal").classList.add("hidden");
+      alert("密碼修改成功！即將進入系統。");
+      enterSystem();
+    }
+
+    function enterSystem() {
+      const userSnap = window.currentUser;
+      document.getElementById("viewLogin").classList.add("hidden");
+      document.getElementById("userInfoBar").classList.remove("hidden");
+      document.getElementById("userEmailDisplay").innerText = userSnap.name + " (" + userSnap.email + ")";
+      document.getElementById("userRoleBadge").innerText = userSnap.role;
+
+      const gasInput = document.getElementById("gasApiUrl");
+      if (gasInput) gasInput.value = localStorage.getItem("gasApiUrl") || "";
+
+      if (userSnap.role === "super_admin") {
+        document.getElementById("viewSuperAdmin").classList.remove("hidden");
+        loadSuperAdminData();
+      } else if (userSnap.role === "manager") {
+        document.getElementById("viewManager").classList.remove("hidden");
+        loadManagerData();
+      } else {
+        document.getElementById("viewEmployee").classList.remove("hidden");
+        loadEmployeeData();
+      }
+    }
+
+    async function getFirestoreDoc(coll, id) {
+      const { doc, getDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      const snap = await getDoc(doc(getFirestore(), coll, id));
+      return snap.exists() ? snap.data() : null;
+    }
+
+    function logout() {
+      localStorage.removeItem("pip_logged_user");
+      location.reload();
+    }
+
+    function saveGasUrl() {
+      const url = document.getElementById("gasApiUrl").value.trim();
+      localStorage.setItem("gasApiUrl", url);
+      alert("GAS 發信 API 儲存成功！");
+    }
+
+    async function loadSuperAdminData() {
+      const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      const db = getFirestore();
+
+      const usersSnap = await getDocs(collection(db, "users"));
+      let userHtml = `<table class="w-full text-left text-xs border"><tr class="bg-slate-100 border-b p-2"><th>Email</th><th>姓名</th><th>角色</th><th>密碼 (管理者可見)</th><th>操作</th></tr>`;
+      let empOptions = "", mgrOptions = "", mgrCheckboxes = "";
+      
+      usersSnap.forEach(d => {
+        const u = d.data();
+        window.allUsersMap[u.email] = u.name;
+        userHtml += `<tr class="border-b p-2">
+          <td class="p-2">${u.email}</td>
+          <td class="p-2">${u.name}</td>
+          <td class="p-2">${u.role}</td>
+          <td class="p-2 font-mono text-indigo-600 font-bold">${u.password}</td>
+          <td class="p-2 space-x-1">
+            <button onclick="adminResetPwd('${u.email}')" class="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded border border-amber-200 hover:bg-amber-100">重置密碼</button>
+            <button onclick="deleteUser('${u.email}')" class="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded border border-rose-200 hover:bg-rose-100">刪除帳號</button>
+          </td>
+        </tr>`;
+        if (u.role === "employee") empOptions += `<option value="${u.email}">${u.name} (${u.email})</option>`;
+        if (u.role === "manager" || u.role === "super_admin") {
+          mgrOptions += `<option value="${u.email}">${u.name} (${u.email})</option>`;
+          mgrCheckboxes += `<label class="flex items-center"><input type="checkbox" name="pipMgrs" value="${u.email}" class="mr-1"> ${u.name}</label>`;
+        }
+      });
+      userHtml += `</table>`;
+      document.getElementById("userListTable").innerHTML = userHtml;
+      document.getElementById("pipTargetEmployee").innerHTML = empOptions;
+      document.getElementById("pipPublisher").innerHTML = mgrOptions;
+      document.getElementById("pipManagersCheckbox").innerHTML = mgrCheckboxes;
+
+      loadMasterPipList();
+    }
+
+    async function adminResetPwd(email) {
+      const newPwd = prompt(`請輸入 ${email} 的新密碼：`);
+      if (newPwd) {
+        const { doc, updateDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await updateDoc(doc(getFirestore(), "users", email), { password: newPwd, isDefault: true });
+        alert("密碼已重置！該同仁下次登入時需要輸入此新密碼並重新設定。");
+        loadSuperAdminData();
+      }
+    }
+
+    async function deleteUser(email) {
+      if (confirm(`確定要刪除帳號 ${email} 嗎？此動作無法復原。`)) {
+        const { doc, deleteDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await deleteDoc(doc(getFirestore(), "users", email));
+        alert("帳號已成功刪除！");
+        loadSuperAdminData();
+      }
+    }
+
+    async function loadMasterPipList() {
+      const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
+      let html = "";
+      pipsSnap.forEach(d => {
+        const p = d.data();
+        html += `<div class="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50 text-sm">
+          <div>
+            <span class="font-bold text-indigo-600">${p.empName}</span>
+            <span class="text-xs text-slate-400 ml-2">發布狀態：${p.status}</span>
+          </div>
+          <div class="space-x-2">
+            <button onclick="openPipEditor('${p.id}')" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700">編輯/檢視</button>
+            <button onclick="deletePipProject('${p.id}', '${p.empName}')" class="text-xs bg-rose-50 text-rose-600 px-3 py-1.5 rounded border border-rose-200 hover:bg-rose-100">刪除專案</button>
+          </div>
+        </div>`;
+      });
+      document.getElementById("pipMasterList").innerHTML = html || "<p class='text-xs text-slate-400'>尚無 PIP 專案</p>";
+    }
+
+    async function deletePipProject(pipId, empName) {
+      if (confirm(`確定要刪除員工 [${empName}] 的此份 PIP 專案嗎？此動作無法復原。`)) {
+        const { doc, deleteDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await deleteDoc(doc(getFirestore(), "pips", pipId));
+        alert("PIP 專案已成功刪除！");
+        loadMasterPipList();
+      }
+    }
+
+    async function deleteCurrentPip() {
+      if (window.currentPip && confirm(`確定要刪除目前的 PIP 專案嗎？`)) {
+        const { doc, deleteDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await deleteDoc(doc(getFirestore(), "pips", window.currentPip.id));
+        alert("專案已成功刪除！即將返回主頁。");
+        backToDashboard();
+      }
+    }
+
+    async function createUser(e) {
+      e.preventDefault();
+      const email = document.getElementById("newUserEmail").value.trim().toLowerCase();
+      const name = document.getElementById("newUserName").value.trim();
+      const pwd = document.getElementById("newUserPassword").value.trim();
+      const role = document.getElementById("newUserRole").value;
+
+      const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await setDoc(doc(getFirestore(), "users", email), { email, name, password: pwd, role, isDefault: true });
+      alert("帳號建立成功！(已設為首登需變更密碼)");
+      loadSuperAdminData();
+    }
+
+    async function createPipProject(e) {
+      e.preventDefault();
+      const empEmail = document.getElementById("pipTargetEmployee").value;
+      const publisherEmail = document.getElementById("pipPublisher").value;
+      const startDate = document.getElementById("pipStartDate").value;
+      const endDate = document.getElementById("pipEndDate").value;
+
+      const mgrs = [];
+      document.querySelectorAll("input[name='pipMgrs']:checked").forEach(c => mgrs.push(c.value));
+
+      const empUser = await getFirestoreDoc("users", empEmail);
+
+      const pipId = "pip_" + Date.now();
+      const pipData = {
+        id: pipId,
+        empEmail,
+        empName: empUser.name,
+        publisherEmail,
+        assignedManagers: mgrs,
+        startDate,
+        endDate,
+        status: "草稿",
+        empAckDate: "",
+        driveUploadUrl: "",
+        indicators: [
+          { title: "改善指標一", objective: "", expectation: "", kpi: "", support: "", isEditing: false }
+        ],
+        checklist: [
+          { id: 1, text: "完成第一個指定任務項目", done: false, isEditing: false }
+        ],
+        weeklyReviews: { 1: {}, 2: {}, 3: {}, 4: {} },
+        signatures: {},
+        finalOutcome: "",
+        extendDate: "",
+        finalSummary: ""
+      };
+
+      const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await setDoc(doc(getFirestore(), "pips", pipId), pipData);
+
+      alert("PIP 草稿建立成功！即將進入編輯視窗。");
+      openPipEditor(pipId);
+    }
+
+    // 重大優化：改為 Firestore 即時監聽 onSnapshot（同仁送出時主管頁面免按 F5 即時跳出成果）
+    async function openPipEditor(pipId) {
+      const { doc, onSnapshot, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      
+      onSnapshot(doc(getFirestore(), "pips", pipId), (docSnap) => {
+        if (docSnap.exists()) {
+          window.currentPip = docSnap.data();
+          refreshPipUI();
+          switchWeekTab(window.activeWeek || 1);
+        }
+      });
+    }
+
+    function refreshPipUI() {
+      const p = window.currentPip;
+
+      document.getElementById("viewSuperAdmin").classList.add("hidden");
+      document.getElementById("viewManager").classList.add("hidden");
+      document.getElementById("viewPipEditor").classList.remove("hidden");
+
+      const pubName = window.allUsersMap[p.publisherEmail] || p.publisherEmail;
+      const mgrNames = (p.assignedManagers || []).map(m => window.allUsersMap[m] || m).join(", ");
+
+      document.getElementById("editorEmpName").innerText = p.empName;
+      document.getElementById("editorDates").innerText = p.startDate + " ~ " + p.endDate;
+      document.getElementById("editorPublisher").innerText = pubName;
+      document.getElementById("editorManagers").innerText = mgrNames;
+      document.getElementById("editorStatus").innerText = p.status;
+      document.getElementById("editorEmpAckDate").innerText = p.empAckDate || "尚未確認接收";
+      document.getElementById("pipDriveUploadUrl").value = p.driveUploadUrl || "";
+
+      const isClosed = p.status === "已結案";
+      const isPublisher = window.currentUser.email === p.publisherEmail;
+      const isSuperAdmin = window.currentUser.role === "super_admin";
+
+      // 已結案防呆按鈕鎖定
+      document.getElementById("btnSaveDraft").classList.toggle("hidden", isClosed);
+      document.getElementById("btnReturnRevise").classList.toggle("hidden", isClosed);
+
+      if (isClosed) {
+        document.getElementById("btnPublish").classList.add("hidden");
+        document.getElementById("btnFinalize").classList.add("hidden");
+      } else {
+        document.getElementById("btnPublish").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
+        document.getElementById("btnFinalize").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
+      }
+
+      document.getElementById("btnDeletePip").classList.toggle("hidden", !(isPublisher || isSuperAdmin));
+
+      document.getElementById("btnAddIndBtn").classList.toggle("hidden", isClosed);
+      document.getElementById("btnAddTaskBtn").classList.toggle("hidden", isClosed);
+
+      switchAdminStepTab(1);
+      renderIndicators();
+      renderChecklist();
+      switchWeekTab(1);
+      renderSignatures(); // 強制繪製簽名
+      checkFinalizeLockStatus();
+    }
+
+    function switchAdminStepTab(step) {
+      for (let i = 1; i <= 3; i++) {
+        const tabBtn = document.getElementById(`stepTab${i}`);
+        const sec = document.getElementById(`stepSection${i}`);
+        if (i === step) {
+          tabBtn.className = "flex-1 py-3 px-4 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50/50";
+          sec.classList.remove("hidden");
+        } else {
+          tabBtn.className = "flex-1 py-3 px-4 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800";
+          sec.classList.add("hidden");
+        }
+      }
+      renderSignatures();
+    }
+
+    function updateDriveUploadUrl(val) {
+      if (window.currentPip) window.currentPip.driveUploadUrl = val;
+    }
+
+    function renderIndicators() {
+      const container = document.getElementById("indicatorsContainer");
+      let html = "";
+      const isClosed = window.currentPip.status === "已結案";
+
+      (window.currentPip.indicators || []).forEach((ind, idx) => {
+        if (ind.isEditing && !isClosed) {
+          html += `<div class="bg-white p-4 rounded-lg border-2 border-indigo-200 shadow-sm space-y-3 relative">
+            <div class="flex justify-between items-center bg-indigo-50/60 p-2 rounded">
+              <input type="text" value="${ind.title}" onchange="updateInd(${idx}, 'title', this.value)" placeholder="指標標題" class="w-full font-bold bg-white p-1.5 border rounded text-slate-800 text-sm">
+              <div class="flex space-x-2 ml-2 flex-shrink-0">
+                <button onclick="toggleIndMode(${idx}, false)" class="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded hover:bg-indigo-700 font-bold"><i class="fa-solid fa-check mr-1"></i>完成編輯</button>
+                <button onclick="deleteIndicator(${idx})" class="text-xs text-rose-600 hover:underline"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 mb-0.5">改善目標 (Objective)</label>
+              <textarea onchange="updateInd(${idx}, 'objective', this.value)" rows="2" class="w-full p-2 border rounded text-xs bg-slate-50/50">${ind.objective}</textarea>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 mb-0.5">具體行為要求 (Actionable Expectations)</label>
+              <textarea onchange="updateInd(${idx}, 'expectation', this.value)" rows="3" class="w-full p-2 border rounded text-xs bg-slate-50/50">${ind.expectation}</textarea>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 mb-0.5">衡量與達標標準 (Metrics)</label>
+                <textarea onchange="updateInd(${idx}, 'kpi', this.value)" rows="2" class="w-full p-2 border rounded text-xs bg-slate-50/50">${ind.kpi}</textarea>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 mb-0.5">輔導與支援資源 (Support)</label>
+                <textarea onchange="updateInd(${idx}, 'support', this.value)" rows="2" class="w-full p-2 border rounded text-xs bg-slate-50/50">${ind.support}</textarea>
+              </div>
+            </div>
+          </div>`;
+        } else {
+          html += `<div class="bg-slate-50 p-3 rounded-lg border hover:border-slate-300 transition flex justify-between items-center">
+            <div class="space-y-1">
+              <h4 class="font-bold text-sm text-slate-800"><i class="fa-solid fa-bullseye text-indigo-500 mr-2"></i>${ind.title || '未命名指標'}</h4>
+              <p class="text-xs text-slate-500 line-clamp-1">${ind.objective || '尚未填寫目標說明'}</p>
+            </div>
+            <div class="flex space-x-2 flex-shrink-0">
+              <button onclick="previewIndContent(${idx})" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 border border-indigo-200 rounded hover:bg-indigo-100 font-bold"><i class="fa-solid fa-eye mr-1"></i>檢視內容</button>
+              ${!isClosed ? `<button onclick="toggleIndMode(${idx}, true)" class="text-xs bg-white text-slate-700 px-3 py-1.5 border rounded hover:bg-slate-100 font-bold"><i class="fa-solid fa-pen mr-1"></i>展開編輯</button>
+              <button onclick="deleteIndicator(${idx})" class="text-xs text-rose-500 hover:underline px-1"><i class="fa-solid fa-trash"></i></button>` : ''}
+            </div>
+          </div>`;
+        }
+      });
+      container.innerHTML = html || "<p class='text-xs text-slate-400'>目前無指標，請點擊上方按鈕新增。</p>";
+    }
+
+    function previewIndContent(idx) {
+      const ind = window.currentPip.indicators[idx];
+      document.getElementById("previewModalTitle").innerText = ind.title || "改善指標詳情";
+      document.getElementById("previewModalBody").innerHTML = `
+        <div class="space-y-3">
+          <div><b class="text-slate-900 block mb-1">【改善目標 Objective】</b><p class="bg-slate-50 p-2.5 rounded border">${ind.objective || '無'}</p></div>
+          <div><b class="text-slate-900 block mb-1">【具體行為要求 Expectations】</b><p class="bg-slate-50 p-2.5 rounded border whitespace-pre-line">${ind.expectation || '無'}</p></div>
+          <div><b class="text-slate-900 block mb-1">【衡量與達標標準 Metrics】</b><p class="bg-slate-50 p-2.5 rounded border">${ind.kpi || '無'}</p></div>
+          <div><b class="text-slate-900 block mb-1">【輔導與支援資源 Support】</b><p class="bg-slate-50 p-2.5 rounded border">${ind.support || '無'}</p></div>
+        </div>`;
+      document.getElementById("previewModal").classList.remove("hidden");
+    }
+
+    function closePreviewModal() {
+      document.getElementById("previewModal").classList.add("hidden");
+    }
+
+    function toggleIndMode(idx, isEditing) {
+      window.currentPip.indicators[idx].isEditing = isEditing;
+      renderIndicators();
+    }
+
+    function updateInd(idx, field, val) {
+      window.currentPip.indicators[idx][field] = val;
+    }
+
+    function addIndicator() {
+      if (!window.currentPip.indicators) window.currentPip.indicators = [];
+      const num = window.currentPip.indicators.length + 1;
+      window.currentPip.indicators.push({ title: `指標${num}`, objective: "", expectation: "", kpi: "", support: "", isEditing: true });
+      renderIndicators();
+    }
+
+    function deleteIndicator(idx) {
+      if (confirm("確定要刪除此項改善指標嗎？")) {
+        window.currentPip.indicators.splice(idx, 1);
+        renderIndicators();
+      }
+    }
+
+    function renderChecklist() {
+      const container = document.getElementById("checklistContainer");
+      let html = "";
+      const isClosed = window.currentPip.status === "已結案";
+
+      (window.currentPip.checklist || []).forEach((item, idx) => {
+        if (item.isEditing && !isClosed) {
+          html += `<div class="flex items-center space-x-2 bg-white p-2 rounded border-2 border-emerald-200">
+            <span class="text-xs font-bold text-slate-400 w-6">${idx + 1}.</span>
+            <textarea onchange="updateChecklistItem(${idx}, this.value)" rows="2" placeholder="輸入任務內容..." class="flex-1 p-2 border rounded text-xs bg-slate-50/50">${item.text}</textarea>
+            <button onclick="toggleChecklistMode(${idx}, false)" class="text-xs bg-emerald-600 text-white px-2.5 py-1 rounded font-bold"><i class="fa-solid fa-check"></i></button>
+            <button onclick="deleteChecklistItem(${idx})" class="text-xs text-rose-600 hover:underline px-1"><i class="fa-solid fa-trash"></i></button>
+          </div>`;
+        } else {
+          html += `<div class="flex items-center justify-between bg-slate-50 p-2.5 rounded border">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold text-slate-400">${idx + 1}.</span>
+              <span class="text-xs text-slate-800 font-medium">${item.text || '未命名任務'}</span>
+            </div>
+            <div class="flex space-x-2">
+              <button onclick="previewTaskContent(${idx})" class="text-xs text-indigo-600 hover:underline font-bold"><i class="fa-solid fa-eye mr-1"></i>檢視</button>
+              ${!isClosed ? `<button onclick="toggleChecklistMode(${idx}, true)" class="text-xs text-slate-600 hover:underline font-bold"><i class="fa-solid fa-pen mr-1"></i>編輯</button>
+              <button onclick="deleteChecklistItem(${idx})" class="text-xs text-rose-500 hover:underline px-1"><i class="fa-solid fa-trash"></i></button>` : ''}
+            </div>
+          </div>`;
+        }
+      });
+      container.innerHTML = html || "<p class='text-xs text-slate-400'>目前無任務項目，請點擊上方按鈕新增。</p>";
+    }
+
+    function previewTaskContent(idx) {
+      const task = window.currentPip.checklist[idx];
+      document.getElementById("previewModalTitle").innerText = `任務項目 ${idx + 1} 詳情`;
+      document.getElementById("previewModalBody").innerHTML = `
+        <div class="space-y-2">
+          <b class="text-slate-900 block">【任務描述與具體交付要求】</b>
+          <p class="bg-slate-50 p-3 rounded border whitespace-pre-line">${task.text || '無內容'}</p>
+        </div>`;
+      document.getElementById("previewModal").classList.remove("hidden");
+    }
+
+    function toggleChecklistMode(idx, isEditing) {
+      window.currentPip.checklist[idx].isEditing = isEditing;
+      renderChecklist();
+    }
+
+    function updateChecklistItem(idx, val) {
+      window.currentPip.checklist[idx].text = val;
+    }
+
+    function addChecklistItem() {
+      if (!window.currentPip.checklist) window.currentPip.checklist = [];
+      window.currentPip.checklist.push({ id: Date.now(), text: "", done: false, isEditing: true });
+      renderChecklist();
+    }
+
+    function deleteChecklistItem(idx) {
+      window.currentPip.checklist.splice(idx, 1);
+      renderChecklist();
+    }
+
+    function switchWeekTab(w) {
+      window.activeWeek = w;
+      for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById(`tabW${i}`);
+        if (i === w) {
+          btn.className = "px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600";
+        } else {
+          btn.className = "px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-slate-500";
+        }
+      }
+
+      const wData = (window.currentPip.weeklyReviews || {})[w] || {};
+      document.getElementById("wEmpProgress").innerText = wData.driveLink || wData.notes ? "已回報" : "進行中";
+      document.getElementById("wEmpDriveLink").href = wData.driveLink || "#";
+      document.getElementById("wEmpDriveLink").innerText = wData.driveLink ? "開啟同仁提供之檔案 ↗" : "尚未提供";
+      document.getElementById("wEmpNotes").innerText = wData.notes || "無";
+
+      document.getElementById("wManagerComment").value = wData.managerComment || "";
+      if (wData.result) {
+        const radio = document.querySelector(`input[name="wResult"][value="${wData.result}"]`);
+        if (radio) radio.checked = true;
+      }
+    }
+
+    // 絕對強效繪製簽名卡片 (同步寫入主管與同仁)
+    function renderSignatures() {
+      const grid = document.getElementById("signaturesGrid");
+      if (!grid) return;
+
+      const p = window.currentPip;
+      if (!p) return;
+
+      let html = "";
+      const sigs = p.signatures || {};
+
+      // 1. 同仁簽名卡片
+      const empSign = sigs['emp'];
+      const empSignTime = sigs['emp_time'] || '';
+      const isCurrentEmp = window.currentUser.email === p.empEmail;
+      
+      html += `<div class="border p-3 rounded-lg text-center bg-white shadow-sm border-slate-200">
+        <span class="text-xs text-slate-500 block mb-1 font-semibold">受輔導同仁</span>
+        <span class="text-[11px] text-indigo-600 font-bold block mb-2">${p.empName || '受輔導同仁'}</span>
+        ${empSign 
+          ? `<img src="${empSign}" class="h-12 mx-auto mb-1 object-contain"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已簽名簽回</span><span class="text-[9px] text-slate-400 block">${empSignTime}</span>` 
+          : (isCurrentEmp 
+              ? `<button onclick="openSignModal('emp')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow print-hide">點此簽名</button>` 
+              : `<span class="text-xs text-amber-600 block my-2 font-semibold">待同仁簽回</span>`)}
+      </div>`;
+
+      // 2. 輔導主管群簽名卡片 (包含發布主管 + 指派參與主管)
+      const pubEmail = p.publisherEmail;
+      const assignedMgrs = p.assignedManagers || [];
+      const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
+
+      allMgrs.forEach(mgrEmail => {
+        const mgrSign = sigs[mgrEmail];
+        const mgrSignTime = sigs[mgrEmail + '_time'] || '';
+        const isCurrentMgr = window.currentUser.email === mgrEmail || window.currentUser.role === 'super_admin';
+        const mgrName = window.allUsersMap[mgrEmail] || mgrEmail;
+        const isPublisher = mgrEmail === pubEmail;
+        
+        html += `<div class="border p-3 rounded-lg text-center bg-white shadow-sm border-slate-200">
+          <span class="text-xs text-slate-500 block mb-1 font-semibold">${isPublisher ? '★ 正式發布主管' : '輔導主管'}</span>
+          <span class="text-[11px] text-indigo-600 font-bold block mb-2">${mgrName}</span>
+          ${mgrSign 
+            ? `<img src="${mgrSign}" class="h-12 mx-auto mb-1 object-contain"><span class="text-[10px] text-emerald-600 font-bold block">✓ 已確認簽核</span><span class="text-[9px] text-slate-400 block">${mgrSignTime}</span>` 
+            : (isCurrentMgr 
+                ? `<button onclick="openSignModal('${mgrEmail}')" class="text-xs bg-indigo-600 text-white font-bold px-3 py-1.5 rounded hover:bg-indigo-700 shadow print-hide">點此確認簽核</button>` 
+                : `<span class="text-xs text-slate-400 block my-2">待主管簽核</span>`)}
+        </div>`;
+      });
+
+      grid.innerHTML = html;
+      checkFinalizeLockStatus();
+    }
+
+    function checkFinalizeLockStatus() {
+      const pubEmail = window.currentPip.publisherEmail;
+      const assignedMgrs = window.currentPip.assignedManagers || [];
+      const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
+      const sigs = window.currentPip.signatures || {};
+      
+      const allMgrsSigned = allMgrs.length > 0 && allMgrs.every(m => sigs[m]);
+
+      const btnFinalize = document.getElementById("btnFinalize");
+      if (btnFinalize) {
+        btnFinalize.disabled = !allMgrsSigned;
+        if (allMgrsSigned) {
+          btnFinalize.classList.remove("opacity-50", "cursor-not-allowed");
+        } else {
+          btnFinalize.classList.add("opacity-50", "cursor-not-allowed");
+        }
+      }
+
+      const bothSidesSigned = allMgrsSigned && sigs['emp'];
+      const isClosed = window.currentPip.status === "已結案";
+      const btnPdf = document.getElementById("btnPdfDownload");
+      if (btnPdf) {
+        btnPdf.disabled = !(bothSidesSigned && isClosed);
+        if (bothSidesSigned && isClosed) {
+          btnPdf.classList.remove("opacity-50", "cursor-not-allowed");
+        } else {
+          btnPdf.classList.add("opacity-50", "cursor-not-allowed");
+        }
+      }
+    }
+
+    function openSignModal(role) {
+      window.targetSignRole = role;
+      document.getElementById("signModal").classList.remove("hidden");
+      if (window.signaturePad) {
+        window.signaturePad.clear();
+      } else {
+        initPad();
+      }
+    }
+    function closeSignModal() {
+      document.getElementById("signModal").classList.add("hidden");
+    }
+    function clearSignature() {
+      if (window.signaturePad) window.signaturePad.clear();
+    }
+
+    async function saveSignature() {
+      if (!window.signaturePad || window.signaturePad.isEmpty()) {
+        alert("請先手寫簽名！");
+        return;
+      }
+      const dataUrl = window.signaturePad.toDataURL();
+      const now = new Date();
+      const timeStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
+      
+      if (!window.currentPip.signatures) window.currentPip.signatures = {};
+      window.currentPip.signatures[window.targetSignRole] = dataUrl;
+      window.currentPip.signatures[window.targetSignRole + '_time'] = timeStr;
+
+      closeSignModal();
+      await savePipDataToDb();
+      
+      renderSignatures();
+      checkFinalizeLockStatus();
+      if (window.currentUser.email === window.currentPip.empEmail) {
+        renderEmployeeCard();
+      }
+      alert("線上記名手寫簽名成功！");
+    }
+
+    function toggleExtendInput(show) {
+      document.getElementById("extendDateBox").classList.toggle("hidden", !show);
+    }
+
+    async function saveDraftOnly() {
+      await savePipDataToDb();
+      alert("變更已成功儲存至雲端資料庫！");
+    }
+
+    async function savePipDataToDb() {
+      const wRes = document.querySelector('input[name="wResult"]:checked');
+      if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
+      window.currentPip.weeklyReviews[window.activeWeek] = {
+        ...window.currentPip.weeklyReviews[window.activeWeek],
+        result: wRes ? wRes.value : "",
+        managerComment: document.getElementById("wManagerComment").value
+      };
+
+      const finalRes = document.querySelector('input[name="finalOutcome"]:checked');
+      if (finalRes) window.currentPip.finalOutcome = finalRes.value;
+      window.currentPip.extendDate = document.getElementById("finalExtendDate").value;
+      window.currentPip.finalSummary = document.getElementById("finalManagerSummary").value;
+
+      const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
+    }
+
+    async function publishPip() {
+      if (confirm("確定要正式發布此 PIP 給同仁嗎？系統將發送 Email 通知同仁。")) {
+        window.currentPip.status = "進行中";
+        await savePipDataToDb();
+        triggerEmailNotification("pub_to_emp");
+        alert("PIP 已成功發布並完成寄信通知同仁！");
+        refreshPipUI();
+      }
+    }
+
+    async function returnForRevision() {
+      if (confirm("確定要退回此 PIP 要求同仁修訂嗎？系統將發送 Email 通知同仁。")) {
+        window.currentPip.status = "退回修訂中";
+        await savePipDataToDb();
+        triggerEmailNotification("return_to_emp");
+        alert("已通知同仁退回修訂！");
+        refreshPipUI();
+      }
+    }
+
+    async function finalizePipProject() {
+      if (confirm("全體主管均已確認簽核，確定要完成此 PIP 結案並通知同仁簽回嗎？")) {
+        window.currentPip.status = "已結案";
+        await savePipDataToDb();
+        triggerEmailNotification("final_to_all");
+        alert("專案已正式宣佈結案，並已自動發信通知同仁登入查看結果與進行最終簽回！");
+        refreshPipUI();
+      }
+    }
+
+    async function triggerEmailNotification(actionType) {
+      const gasUrl = localStorage.getItem("gasApiUrl");
+      if (!gasUrl) return;
+
+      const p = window.currentPip;
+      const pubEmail = p.publisherEmail || "";
+      const assignedMgrs = p.assignedManagers || [];
+      const allMgrsCc = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean).join(",");
+
+      let targetTo = "", targetCc = "", subject = "", body = "";
+
+      if (actionType === "pub_to_emp") {
+        targetTo = p.empEmail;
+        targetCc = allMgrsCc;
+        subject = `【友士國際會計師事務所】個人 PIP 績效改善計畫正式發布通知`;
+        body = `<p>親愛的 <b>${p.empName} 同仁</b> 您好：</p>
+          <p>主管已為您建立正式的「績效改善計畫 (PIP)」，執行期間為：<b>${p.startDate} ~ ${p.endDate}</b>。</p>
+          <p>請點擊下方系統連結登入查看詳細改善指標與具體工作任務清單，並確認接收：</p>
+          <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>
+          <p>如有任何疑問，請隨時與您的輔導主管聯繫。</p>`;
+
+      } else if (actionType === "return_to_emp") {
+        targetTo = p.empEmail;
+        targetCc = allMgrsCc;
+        subject = `【友士國際會計師事務所】PIP 績效改善計畫退回修訂通知`;
+        body = `<p>親愛的 <b>${p.empName} 同仁</b> 您好：</p>
+          <p>您所提交的 PIP 階段進度或資料，主管已進行審閱並提出修訂建議。</p>
+          <p>請點擊下方系統連結登入查看主管指導評語並補充資料：</p>
+          <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
+
+      } else if (actionType === "emp_ack") {
+        targetTo = pubEmail;
+        targetCc = allMgrsCc;
+        subject = `【友士國際會計師事務所】同仁已確認接收 PIP 計畫`;
+        body = `<p>各位 <b>輔導主管</b> 您好：</p>
+          <p>同仁 <b>${p.empName}</b> 已於 <b>${p.empAckDate}</b> 正式確認接收並承接本 PIP 改善計畫。</p>
+          <p>請點擊下方系統連結登入檢視：</p>
+          <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
+
+      } else if (actionType === "emp_update") {
+        targetTo = pubEmail;
+        targetCc = allMgrsCc;
+        subject = `【友士國際會計師事務所】同仁已更新 PIP 當期階段進度`;
+        body = `<p>各位 <b>輔導主管</b> 您好：</p>
+          <p>同仁 <b>${p.empName}</b> 已回報最新的當期工作進度與成果資料。</p>
+          <p>請點擊下方系統連結登入進行指導評核：</p>
+          <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
+
+      } else if (actionType === "final_to_all") {
+        targetTo = p.empEmail;
+        targetCc = allMgrsCc;
+        subject = `【友士國際會計師事務所】PIP 績效改善計畫期末結案與簽回通知`;
+        body = `<p>親愛的 <b>${p.empName} 同仁</b> 及 <b>輔導主管群</b> 您好：</p>
+          <p>同仁 <b>${p.empName}</b> 的 PIP 績效改善計畫主管群期末評估已完成。</p>
+          <p>期末評估處置結果為：<b style="color:#4f46e5;">${p.finalOutcome}</b>。</p>
+          <p>請同仁點擊下方系統連結登入查看期末評語報告，並完成最終線上記名手寫簽回：</p>
+          <p><a href="${window.location.href}" target="_blank">${window.location.href}</a></p>`;
+      }
+
+      try {
+        await fetch(gasUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            to: targetTo,
+            cc: targetCc,
+            subject: subject,
+            htmlBody: body
+          })
+        });
+      } catch (err) {
+        console.error("寄信失敗:", err);
+      }
+    }
+
+    // 終極高質感方案：開啟所有步驟，直接呼叫瀏覽器原生列印 / 另存為 PDF
+    async function exportToPdf() {
+      const p = window.currentPip;
+      const sigs = p.signatures || {};
+      const pubEmail = p.publisherEmail || "";
+      const assignedMgrs = p.assignedManagers || [];
+      const allMgrs = Array.from(new Set([pubEmail, ...assignedMgrs])).filter(Boolean);
+      const allSigned = allMgrs.every(m => sigs[m]) && sigs['emp'];
+
+      if (p.status !== "已結案" || !allSigned) {
+        alert("專案尚未正式結案，或雙方（主管群與同仁）尚未完成全部簽名簽回，暫無法導出正式 PDF！");
+        return;
+      }
+
+      // 展開所有步驟分頁供完整列印
+      const sec1 = document.getElementById("stepSection1");
+      const sec2 = document.getElementById("stepSection2");
+      const sec3 = document.getElementById("stepSection3");
+      if (sec1) sec1.classList.remove("hidden");
+      if (sec2) sec2.classList.remove("hidden");
+      if (sec3) sec3.classList.remove("hidden");
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // 觸發瀏覽器原生列印視窗 (可選目的地為「另存為 PDF」)
+      window.print();
+
+      // 恢復網頁頁籤狀態
+      switchAdminStepTab(3);
+    }
+
+    function backToDashboard() {
+      location.reload();
+    }
+
+    // 主管專案列表即時監聽 onSnapshot
+    async function loadManagerData() {
+      const { collection, onSnapshot, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      
+      onSnapshot(collection(getFirestore(), "pips"), (snapshot) => {
+        let html = "";
+        snapshot.forEach(d => {
+          const p = d.data();
+          if ((p.assignedManagers || []).includes(window.currentUser.email) || p.publisherEmail === window.currentUser.email) {
+            html += `<div class="p-4 border rounded-lg bg-slate-50 space-y-2">
+              <h4 class="font-bold text-slate-900">${p.empName}</h4>
+              <p class="text-xs text-slate-500">期間：${p.startDate} ~ ${p.endDate}</p>
+              <p class="text-xs text-slate-500">狀態：<span class="font-semibold text-indigo-600">${p.status}</span></p>
+              <button onclick="openPipEditor('${p.id}')" class="w-full mt-2 bg-indigo-600 text-white text-xs py-1.5 rounded hover:bg-indigo-700">開啟覆核面板</button>
+            </div>`;
+          }
+        });
+        document.getElementById("managerPipList").innerHTML = html || "<p class='text-xs text-slate-400'>目前無指派給您的 PIP 專案</p>";
+      });
+    }
+
+    async function loadEmployeeData() {
+      const { collection, getDocs, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      const pipsSnap = await getDocs(collection(getFirestore(), "pips"));
+      let empPip = null;
+      pipsSnap.forEach(d => {
+        const p = d.data();
+        if (p.empEmail === window.currentUser.email && p.status !== "草稿") {
+          empPip = p;
+        }
+      });
+
+      if (!empPip) {
+        document.getElementById("empPipCard").innerHTML = `
+          <div class="text-center py-12 space-y-3">
+            <i class="fa-solid fa-folder-open text-slate-300 text-4xl"></i>
+            <p class="text-slate-500 text-sm font-medium">目前尚無正式發布之 PIP 改善計畫</p>
+            <p class="text-slate-400 text-xs">若主管尚在研擬草稿階段，系統將暫不開放檢視。</p>
+          </div>`;
+        return;
+      }
+
+      window.currentPip = empPip;
+
+      if (!window.currentPip.empAckDate) {
+        autoConfirmEmpAck();
+      } else {
+        renderEmployeeCard();
+      }
+    }
+
+    async function autoConfirmEmpAck() {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
+      window.currentPip.empAckDate = dateStr;
+      
+      const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
+
+      triggerEmailNotification("emp_ack");
+      renderEmployeeCard();
+    }
+
+    function renderEmployeeCard() {
+      const empPip = window.currentPip;
+      const isClosed = empPip.status === "已結案";
+
+      let driveBtn = empPip.driveUploadUrl 
+        ? `<a href="${empPip.driveUploadUrl}" target="_blank" class="inline-block bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded shadow hover:bg-indigo-700 transition print-hide"><i class="fa-brands fa-google-drive mr-1"></i>點此開啟 Google Drive 雲端資料夾上傳佐證檔案 ↗</a>`
+        : `<span class="text-xs text-slate-400">主管尚未指定雲端上傳資料夾</span>`;
+
+      let checklistHtml = "";
+      (empPip.checklist || []).forEach((item, idx) => {
+        checklistHtml += `<label class="flex items-start space-x-3 p-2.5 bg-white rounded border ${isClosed ? 'opacity-75 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'}">
+          <input type="checkbox" ${item.done ? 'checked' : ''} ${isClosed ? 'disabled' : ''} onchange="toggleEmpChecklist(${idx}, this.checked)" class="mt-1 h-4 w-4 text-indigo-600 rounded">
+          <span class="text-xs text-slate-800 ${item.done ? 'line-through text-slate-400' : ''}">${item.text}</span>
+        </label>`;
+      });
+
+      let reviewsSummaryHtml = "";
+      for (let w = 1; w <= 4; w++) {
+        const wData = (empPip.weeklyReviews || {})[w] || {};
+        reviewsSummaryHtml += `<div class="bg-white p-3 rounded border text-xs space-y-1">
+          <div class="flex justify-between font-bold text-slate-700">
+            <span>第 ${w} 期評核結果：<span class="text-indigo-600">${wData.result || '尚未評核'}</span></span>
+          </div>
+          <p class="text-slate-600 bg-slate-50 p-2 rounded">主管評語：${wData.managerComment || '無'}</p>
+        </div>`;
+      }
+
+      const empSign = (empPip.signatures || {})['emp'];
+
+      let ackBlock = `<span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200"><i class="fa-solid fa-circle-check mr-1"></i>已於 ${empPip.empAckDate} 確認接收本 PIP 計畫</span>`;
+
+      let reportBlock = isClosed ? `
+        <div class="bg-slate-100 p-4 rounded-lg border text-xs text-slate-500 font-semibold text-center">
+          🔒 本 PIP 改善計畫已宣告結案，歷史進度與成果資料已全數凍結存檔。
+        </div>` : `
+        <div class="border p-4 rounded-lg bg-slate-50 space-y-4">
+          <h3 class="text-sm font-bold">每期進度回報 (第 1 ~ 4 期)</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs print-hide">
+            <select id="empWeekSelect" onchange="loadEmpWeekData(this.value)" class="p-2 border rounded font-semibold bg-white">
+              <option value="1">第一期 (Phase 1)</option>
+              <option value="2">第二期 (Phase 2)</option>
+              <option value="3">第三期 (Phase 3)</option>
+              <option value="4">第四期 (Phase 4)</option>
+            </select>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">Google Drive 佐證資料分享連結</label>
+              <input type="url" id="empDriveInput" class="w-full p-2 border rounded text-xs bg-white" placeholder="https://drive.google.com/...">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">個人工作心得 / SOP 繳交備註 (大輸入框)</label>
+              <textarea id="empNotesInput" rows="4" placeholder="請填寫當期心得說明..." class="w-full p-3 border rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            </div>
+            <button onclick="submitEmpWeekData()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded text-xs font-semibold shadow print-hide">確認送出當期進度 (自動寄信通知主管群)</button>
+          </div>
+        </div>`;
+
+      let html = `
+        <div class="flex justify-between items-center border-b pb-3">
+          <div>
+            <h2 class="text-xl font-bold">個人 PIP 績效改善計畫</h2>
+            <p class="text-xs text-slate-500 mt-0.5">執行期間：${empPip.startDate} ~ ${empPip.endDate} | 目前狀態：<span class="font-bold text-indigo-600">${empPip.status}</span></p>
+          </div>
+          <div>${ackBlock}</div>
+        </div>
+
+        ${empPip.status === '退回修訂中' ? `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs font-bold flex items-center print-hide"><i class="fa-solid fa-triangle-exclamation mr-2 text-amber-600 text-base"></i>主管退回修訂提示：您提交的進度資料主管已提出建議，請重新編輯並下方送出！</div>` : ''}
+
+        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
+          <h4 class="text-xs font-bold text-indigo-900 mb-1">📁 佐證資料上傳專區</h4>
+          <p class="text-xs text-slate-600 mb-3">請將當期產出的工作文件上傳至主管提供的 Google Drive 資料夾中，上傳完成後可複製檔案連結填入下方欄位。</p>
+          ${driveBtn}
+        </div>
+
+        <div class="bg-slate-50 border p-4 rounded-lg space-y-2">
+          <h3 class="text-sm font-bold text-slate-800 mb-2">☑ 具體工作任務清單 (請勾選已完成項目)</h3>
+          <div class="space-y-2">${checklistHtml || '<p class="text-xs text-slate-400">目前尚無指定任務項目</p>'}</div>
+        </div>
+
+        ${reportBlock}
+
+        <div class="border p-4 rounded-lg bg-slate-50 space-y-3">
+          <h3 class="text-sm font-bold text-slate-800"><i class="fa-solid fa-comments text-indigo-600 mr-1"></i>主管 4 期指導評語與期末結果</h3>
+          <div class="space-y-2">${reviewsSummaryHtml}</div>
+          <div class="bg-indigo-50/50 p-3 rounded border border-indigo-100 text-xs space-y-1">
+            <span class="font-bold text-indigo-900 block">期末總處置結果：<span class="text-indigo-600 font-extrabold">${empPip.finalOutcome || '進行中'}</span></span>
+            <p class="text-slate-600">主管綜合總評：${empPip.finalSummary || '無'}</p>
+          </div>
+        </div>
+
+        <div class="border p-4 rounded-lg bg-slate-50 text-center space-y-2">
+          <h4 class="text-xs font-bold text-slate-700">受輔導同仁期末正式簽名簽回</h4>
+          ${empSign 
+            ? `<img src="${empSign}" class="h-14 mx-auto"><span class="text-xs text-emerald-600 font-bold block">✓ 您已完成線上簽名簽回</span>` 
+            : `<button onclick="openSignModal('emp')" class="bg-indigo-600 text-white text-xs font-bold px-5 py-2 rounded shadow hover:bg-indigo-700 transition print-hide"><i class="fa-solid fa-pen-nib mr-1"></i>點此進行同仁期末手寫簽名簽回</button>`}
+        </div>
+
+        ${isClosed ? `<div class="flex justify-end pt-2 print-hide"><button onclick="exportToPdf()" class="bg-slate-900 text-white px-5 py-2 rounded text-xs font-bold shadow hover:bg-black"><i class="fa-solid fa-file-pdf mr-1"></i>列印 / 另存正式合規 PDF 報告</button></div>` : ''}
+      `;
+      document.getElementById("empPipCard").innerHTML = html;
+      if (!isClosed) loadEmpWeekData(1);
+    }
+
+    function toggleEmpChecklist(idx, checked) {
+      if (window.currentPip.status === "已結案") return;
+      window.currentPip.checklist[idx].done = checked;
+      savePipDataToDb();
+    }
+
+    function loadEmpWeekData(w) {
+      window.activeWeek = w;
+      const wData = (window.currentPip.weeklyReviews || {})[w] || {};
+      const driveEl = document.getElementById("empDriveInput");
+      const notesEl = document.getElementById("empNotesInput");
+      if (driveEl) driveEl.value = wData.driveLink || "";
+      if (notesEl) notesEl.value = wData.notes || "";
+    }
+
+    // 關鍵修復：完美同步寫入，並觸發寄信通知
+    async function submitEmpWeekData() {
+      if (window.currentPip.status === "已結案") {
+        alert("專案已正式結案，無法再變更資料！");
+        return;
+      }
+      const w = window.activeWeek;
+
+      if (!window.currentPip.weeklyReviews) window.currentPip.weeklyReviews = {};
+      window.currentPip.weeklyReviews[w] = {
+        ...window.currentPip.weeklyReviews[w],
+        driveLink: document.getElementById("empDriveInput").value,
+        notes: document.getElementById("empNotesInput").value
+      };
+
+      if (window.currentPip.status === "退回修訂中") {
+        window.currentPip.status = "進行中";
+      }
+
+      const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+      await setDoc(doc(getFirestore(), "pips", window.currentPip.id), window.currentPip);
+
+      triggerEmailNotification("emp_update");
+      alert(`第 ${w} 期進度已成功送出！專案狀態已更新為「進行中」，並已自動發送 Email 通知主管群！`);
+      renderEmployeeCard();
+    }
+  </script>
+</body>
+</html>
